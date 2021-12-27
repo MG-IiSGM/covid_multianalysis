@@ -385,42 +385,81 @@ def edit_sample_list(file_list, sample_list):
                 fout.write(line + "\n")
 
 
-def remove_low_quality(output_dir, min_percentage_20x=90, min_hq_snp=1, type_remove='Uncovered'):
+def remove_low_quality(output_dir, min_coverage=70, max_unmap=10):
     right_now = str(datetime.datetime.now())
     right_now_full = "_".join(right_now.split(" "))
-    output_dir = os.path.abspath(output_dir)
-    uncovered_dir = os.path.join(output_dir, type_remove)  # Uncovered or Mixed
-    variant_dir = output_dir + '/Variants/ivar_filtered'
-    #variant_raw_dir = output_dir + '/Variants/ivar_raw'
-    consensus_dir = os.path.join(output_dir, 'Consensus')
-    uncovered_variant_dir = os.path.join(uncovered_dir, 'Variants')
-    uncovered_consensus_dir = os.path.join(uncovered_dir, 'Consensus')
-    uncovered_variant_filter = os.path.join(
-        uncovered_variant_dir, 'ivar_filtered')
-    #uncovered_variant_raw = os.path.join(uncovered_variant_dir , 'ivar_raw')
-    check_create_dir(uncovered_dir)
-    check_create_dir(uncovered_variant_dir)
-    # check_create_dir(uncovered_variant_raw)
-    check_create_dir(uncovered_variant_filter)
-    check_create_dir(uncovered_consensus_dir)
 
+    output_dir = os.path.abspath(output_dir)
+    uncovered_dir = os.path.join(output_dir, 'Uncovered')
+    
+    # Dirs
+    #['Bam', 'Consensus', 'Quality', 'Stats', 'Trimmed', 'Variants']
+    bam_dir = os.path.join(output_dir, 'Bam')
+    bam_stats_dir = os.path.join(bam_dir, 'Stats')
+    consensus_dir = os.path.join(output_dir, 'Consensus')
+    consensus_ivar_dir = os.path.join(consensus_dir, 'ivar')
+    quality_dir = os.path.join(output_dir, 'Quality')
+    quality_pr_dir = os.path.join(quality_dir, 'processed')
+    quality_raw_dir = os.path.join(quality_dir, 'raw')
+    stats_dir = os.path.join(output_dir, 'Stats')
+    stats_bam_dir = os.path.join(stats_dir, 'Bamstats')
+    stats_cov_dir = os.path.join(stats_dir, 'Coverage')
+    trimmed_dir = os.path.join(output_dir, 'Trimmed')
+    trimmed_html_dir = os.path.join(trimmed_dir, 'html')
+    trimmed_json_dir = os.path.join(trimmed_dir, 'json')
+    variant_dir = os.path.join(output_dir, 'Variants')
+    variant_filtered_dir = os.path.join(variant_dir, 'ivar_filtered')
+    variant_raw_dir = os.path.join(variant_dir, 'ivar_raw')
+
+    folder_list = [bam_dir, bam_stats_dir, consensus_dir, consensus_ivar_dir, 
+                quality_dir, quality_pr_dir, quality_raw_dir, stats_dir,
+                stats_bam_dir, stats_cov_dir, trimmed_dir, trimmed_html_dir, 
+                trimmed_json_dir, variant_dir, variant_filtered_dir, variant_raw_dir]
+
+    # Uncovered dirs
+    uncovered_bam_dir = os.path.join(uncovered_dir, 'Bam')
+    uncovered_bam_stats_dir = os.path.join(uncovered_bam_dir, 'Stats')
+    uncovered_consensus_dir = os.path.join(uncovered_dir, 'Consensus')
+    uncovered_consensus_ivar_dir = os.path.join(uncovered_consensus_dir, 'ivar')
+    uncovered_quality_dir = os.path.join(uncovered_dir, 'Quality')
+    uncovered_quality_pr_dir = os.path.join(uncovered_quality_dir, 'processed')
+    uncovered_quality_raw_dir = os.path.join(uncovered_quality_dir, 'raw')
+    uncovered_stats_dir = os.path.join(uncovered_dir, 'Stats')
+    uncovered_stats_bam_dir = os.path.join(uncovered_stats_dir, 'Bamstats')
+    uncovered_stats_cov_dir = os.path.join(uncovered_stats_dir, 'Coverage')
+    uncovered_trimmed_dir = os.path.join(uncovered_dir, 'Trimmed')
+    uncovered_trimmed_html_dir = os.path.join(uncovered_trimmed_dir, 'html')
+    uncovered_trimmed_json_dir = os.path.join(uncovered_trimmed_dir, 'json')
+    uncovered_variant_dir = os.path.join(uncovered_dir, 'Variants')
+    uncovered_variant_filtered_dir = os.path.join(uncovered_variant_dir, 'ivar_filtered')
+    uncovered_variant_raw_dir = os.path.join(uncovered_variant_dir, 'ivar_raw')
+
+    # Create Uncovered dirs
+    uncovered_folder_list = [uncovered_dir, uncovered_bam_dir, uncovered_bam_stats_dir, uncovered_consensus_dir, uncovered_consensus_ivar_dir, 
+                   uncovered_quality_dir, uncovered_quality_pr_dir, uncovered_quality_raw_dir, uncovered_stats_dir,
+                   uncovered_stats_bam_dir, uncovered_stats_cov_dir, uncovered_trimmed_dir, uncovered_trimmed_html_dir, 
+                   uncovered_trimmed_json_dir, uncovered_variant_dir, uncovered_variant_filtered_dir, uncovered_variant_raw_dir]
+
+    [check_create_dir(x) for x in uncovered_folder_list]
+    
     uncovered_samples = []
 
     for root, _, files in os.walk(output_dir):
-        # Any previous file created except for Table for mixed samples
-        # and Species for both uncovered and mixed
         if root.endswith('Stats'):
             for name in files:
                 filename = os.path.join(root, name)
+                # Retreive coverage stats
                 if name.endswith('overal.stats.tab'):
                     coverage_stat_file = filename
+                    filtered_coverage_stat_file = os.path.join(root, 'filtered_' + name)
                     stats_df = pd.read_csv(coverage_stat_file, sep="\t")
-                    uncovered_samples = stats_df['#SAMPLE'][(stats_df['COV>30X'] < min_percentage_20x) |
-                                                            (stats_df['HQ_SNP'] < min_hq_snp)].tolist()
+                    # Store samples under any of the parameters indicated
+                    uncovered_samples = stats_df['#SAMPLE'][(stats_df['COV>30X'] < min_coverage) |
+                                                            (stats_df['UNMMAPED_PROP'] > max_unmap)].tolist()
                     # create a df with only covered to replace the original
                     covered_df = stats_df[~stats_df['#SAMPLE'].isin(
                         uncovered_samples)]
-                    covered_df.to_csv(coverage_stat_file,
+                    covered_df.to_csv(filtered_coverage_stat_file,
                                       sep="\t", index=False)
                     # create a df with uncovered
                     uncovered_df = stats_df[stats_df['#SAMPLE'].isin(
@@ -434,6 +473,7 @@ def remove_low_quality(output_dir, min_percentage_20x=90, min_hq_snp=1, type_rem
 
     uncovered_samples = [str(x) for x in uncovered_samples]
 
+    # MUEVE FASTQ DE MUESTRAS MALAS A UNCOVERED/
     for root, _, files in os.walk(output_dir):
         if root == output_dir:
             for name in files:
@@ -444,34 +484,19 @@ def remove_low_quality(output_dir, min_percentage_20x=90, min_hq_snp=1, type_rem
                         destination_file = os.path.join(uncovered_dir, name)
                         shutil.move(filename, destination_file)
 
-    for root, _, files in os.walk(output_dir):
-        if 'Trimmed' in root or 'Quality' in root:
-            for name in files:
-                filename = os.path.join(root, name)
-                sample = re.search(r'^(.+?)[._-]', name).group(1)
-                if sample in uncovered_samples:
-                    os.remove(filename)
+    # MUEVE EL RESTO DE ARCHIVOS A LAS SUBCARPETAS
+    for outdir, uncovdir in zip(folder_list, uncovered_folder_list[1:]):
+        for root, _, files in os.walk(outdir):
+            if root == outdir:
+                for name in files:
+                    filename = os.path.join(outdir, name)
+                    sample = re.search(r'^(.+?)[._-]', name).group(1)
+                    if sample in uncovered_samples:
+                        destination_file = os.path.join(uncovdir, name)
+                        shutil.move(filename, destination_file)
+                break
 
-    for sample in uncovered_samples:
-        sample = str(sample)
-        source_uncovered_var = os.path.join(variant_dir, sample + '.tsv')
-        #source_uncovered_var_raw = os.path.join(variant_raw_dir, sample + '.tsv')
-        dest_uncovered_var = os.path.join(
-            uncovered_variant_filter, sample + '.tsv')
-        #dest_uncovered_var_raw = os.path.join(uncovered_variant_raw, sample + '.tsv')
-        source_uncovered_cons = os.path.join(consensus_dir, sample + '.fa')
-        dest_uncovered_cons = os.path.join(
-            uncovered_consensus_dir, sample + '.fa')
-        source_uncovered_cons_qual = os.path.join(
-            consensus_dir, sample + '.qual.txt')
-        dest_uncovered_cons_qual = os.path.join(
-            uncovered_consensus_dir, sample + '.qual.txt')
-        shutil.move(source_uncovered_var, dest_uncovered_var)
-        #shutil.move(source_uncovered_var_raw, dest_uncovered_var_raw)
-        shutil.move(source_uncovered_cons, dest_uncovered_cons)
-        shutil.move(source_uncovered_cons_qual, dest_uncovered_cons_qual)
-
-    # return uncovered_samples
+    return uncovered_samples
 
 
 def clean_unwanted_files(args):

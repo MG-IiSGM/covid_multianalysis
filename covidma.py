@@ -95,10 +95,14 @@ def main():
         quality_group = parser.add_argument_group(
             'Quality parameters', 'parameters for diferent triming conditions')
 
-        quality_group.add_argument('-c', '--coverage20', type=int, default=90, required=False,
-                                   help='Minimum percentage of coverage at 20x to clasify as uncovered (Default 90)')
-        quality_group.add_argument('-n', '--min_snp', type=int, required=False,
-                                   default=1, help='SNP number to pass quality threshold')
+        # quality_group.add_argument('-c', '--coverage20', type=int, default=90, required=False,
+        #                            help='Minimum percentage of coverage at 20x to clasify as uncovered (Default 90)')
+        # quality_group.add_argument('-n', '--min_snp', type=int, required=False,
+        #                            default=1, help='SNP number to pass quality threshold')
+        quality_group.add_argument('-c', '--min_coverage', type=int, default=70, required=False,
+                                    help='Minimum percentage of coverage at 30x to clasify as uncovered (Default 70)')
+        quality_group.add_argument('-u', '--max_unmap', type=int, default=10, required=False,
+                                    help='Maximum percentage of unmaped to clasify as uncovered (Default 10)')
 
         output_group = parser.add_argument_group(
             'Output', 'Required parameter to output results')
@@ -510,8 +514,7 @@ def main():
     # REMOVE UNCOVERED
     ##############################################################################################################################
     logger.info(GREEN + "Removing low quality samples" + END_FORMATTING)
-    # remove_low_quality(output, min_percentage_20x=args.coverage20,
-    #                   min_hq_snp=args.min_snp, type_remove='Uncovered')
+    remove_low_quality(output, min_coverage=args.min_coverage, max_unmap=args.max_unmap)
 
     #ANNOTATION WITH SNPEFF, USER INOUT AND PANGOLIN ####
     #####################################################
