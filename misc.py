@@ -451,7 +451,6 @@ def remove_low_quality(output_dir, min_coverage=70, max_unmap=10):
                 # Retreive coverage stats
                 if name.endswith('overal.stats.tab'):
                     coverage_stat_file = filename
-                    filtered_coverage_stat_file = os.path.join(root, 'filtered_' + name)
                     stats_df = pd.read_csv(coverage_stat_file, sep="\t")
                     # Store samples under any of the parameters indicated
                     uncovered_samples = stats_df['#SAMPLE'][(stats_df['COV>30X'] < min_coverage) |
@@ -459,7 +458,7 @@ def remove_low_quality(output_dir, min_coverage=70, max_unmap=10):
                     # create a df with only covered to replace the original
                     covered_df = stats_df[~stats_df['#SAMPLE'].isin(
                         uncovered_samples)]
-                    covered_df.to_csv(filtered_coverage_stat_file,
+                    covered_df.to_csv(coverage_stat_file,
                                       sep="\t", index=False)
                     # create a df with uncovered
                     uncovered_df = stats_df[stats_df['#SAMPLE'].isin(
