@@ -511,11 +511,6 @@ def main():
     logger.info(GREEN + "Creating overal summary report " + END_FORMATTING)
     obtain_overal_stats(output, group_name)
 
-    # REMOVE UNCOVERED
-    ##############################################################################################################################
-    logger.info(GREEN + "Removing low quality samples" + END_FORMATTING)
-    remove_low_quality(output, min_coverage=args.min_coverage, max_unmap=args.max_unmap)
-
     #ANNOTATION WITH SNPEFF, USER INOUT AND PANGOLIN ####
     #####################################################
     logger.info("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " +
@@ -631,6 +626,11 @@ def main():
     with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
         f.write(report_samples_html_all)
 
+    # REMOVE UNCOVERED
+    ##############################################################################################################################
+    logger.info(GREEN + "Removing low quality samples" + END_FORMATTING)
+    remove_samples = remove_low_quality(output, group_name, min_coverage=args.min_coverage, max_unmap=args.max_unmap)
+
     # SNP COMPARISON using tsv variant files
     ######################################################
     logger.info("\n\n" + BLUE + BOLD + "STARTING COMPARISON IN GROUP: " +
@@ -648,8 +648,9 @@ def main():
     compare_snp_matrix_recal_intermediate = full_path_compare + ".revised_intermediate.tsv"
     compare_snp_matrix_INDEL_intermediate = full_path_compare + \
         ".revised_INDEL_intermediate.tsv"
+    print('CREATE INTERMEDIATE')
     recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
-        out_variant_ivar_dir, out_stats_coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+        out_variant_ivar_dir, out_stats_coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
     recalibrated_snp_matrix_intermediate.to_csv(
         compare_snp_matrix_recal_intermediate, sep="\t", index=False)
     compare_snp_matrix_INDEL_intermediate_df = remove_position_range(

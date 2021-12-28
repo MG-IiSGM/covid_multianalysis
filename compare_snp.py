@@ -144,17 +144,25 @@ def extract_uncovered(cov_file, min_total_depth=4):
     return df
 
 
-def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
+def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
+
+    list_good = []
+
+    # Collect all files that pass remove_low_quality() filter
     for root, _, files in os.walk(variant_dir):
         if root == variant_dir:
             for name in files:
-                if name.endswith('.tsv'):
-                    logger.debug("Adding: " + name)
+                if name.endswith('.tsv') and not any(value in name for value in remove_samples):
                     filename = os.path.join(root, name)
-                    dfv = import_tsv_variants(filename, only_snp=only_snp)
-                    df = df.merge(dfv, how='outer')
+                    list_good.append(filename)
+
+    for filename in list_good:
+        name = filename.split('/')[-1].split('.')[0]
+        logger.debug("Adding: " + name)
+        dfv = import_tsv_variants(filename, only_snp=only_snp)
+        df = df.merge(dfv, how='outer')
     # Round frequencies
     df = df.round(2)
     #Remove <= 0.1 (parameter in function)
@@ -166,17 +174,12 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, mi
     df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
 
     # Include poorly covered
-    for root, _, files in os.walk(variant_dir):
-        if root == variant_dir:
-            for name in files:
-                if name.endswith('.tsv'):
-                    filename = os.path.join(root, name)
-                    sample = name.split('.')[0]
-                    logger.debug("Adding lowfreqs: " + sample)
-                    dfl = extract_lowfreq(
-                        filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
-                    df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
-                        dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
+    for filename in list_good:
+        sample = filename.split('/')[-1].split('.')[0]
+        logger.debug("Adding lowfreqs: " + sample)
+        dfl = extract_lowfreq(filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
+        df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
+                            dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
 
     indel_positions = df[(df['REF'].str.len() > 1) | (
         df['ALT'].str.len() > 1)].POS.tolist()
@@ -195,7 +198,7 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, mi
     samples_coverage = df.columns.tolist()[4:]
     for root, _, files in os.walk(coverage_dir):
         for name in files:
-            if name.endswith('.cov'):
+            if name.endswith('.cov') and not any(value in name for value in remove_samples):
                 filename = os.path.join(root, name)
                 sample = name.split('.')[0]
                 if sample in df.columns[4:]:
