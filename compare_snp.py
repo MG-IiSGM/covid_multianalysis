@@ -88,8 +88,29 @@ def blank_database():
 
 # COMPARE SNP 2.0
 
+def remove_position_range(df):
 
-def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=True):
+    INDELs = df[df['ALT'].str.contains(r'-[ATCG]+', regex=True)]
+
+    print(INDELs.head())
+
+    bed_df = pd.DataFrame()
+    bed_df['#CHROM'] = INDELs['REGION']
+    bed_df['start'] = INDELs['POS'].astype('int') + 1
+    bed_df['length'] = INDELs['ALT'].str.len() - 1
+    bed_df['end'] = bed_df['start'] + bed_df['length']
+
+    print(bed_df.head())
+
+    for _, row in df.iterrows():
+        position_number = int(row.POS)
+        if any(start <= position_number <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
+            #logger.info('Position: {} removed found in {}'.format(row.Position, df))
+            print(row)
+            df = df[df.POS != row.POS]
+    return df
+
+def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=True, remove_conflict=True):
     base_file = os.path.basename(tsv_file)
     input_file = os.path.abspath(tsv_file)
     sample = base_file.split(".")[0]
@@ -104,9 +125,11 @@ def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=Tru
     df = df.rename(columns={'ALT_FREQ': sample})
     if only_snp == True:
         df = df[~(df.ALT.str.startswith('+') | df.ALT.str.startswith('-'))]
-        return df
-    else:
-        return df
+    if remove_conflict:
+        print(df.head())
+        df = remove_position_range(df)
+
+    return df
 
 
 def extract_lowfreq(tsv_file,  min_total_depth=4, min_alt_dp=4, min_freq_include=0.7, only_snp=True):
@@ -143,8 +166,7 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
-
-def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
+def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, remove_conflict=True):
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
 
@@ -161,7 +183,7 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples, min_freq
     for filename in list_good:
         name = filename.split('/')[-1].split('.')[0]
         logger.debug("Adding: " + name)
-        dfv = import_tsv_variants(filename, only_snp=only_snp)
+        dfv = import_tsv_variants(filename, only_snp=only_snp, remove_conflict=remove_conflict)
         df = df.merge(dfv, how='outer')
     # Round frequencies
     df = df.round(2)
@@ -287,28 +309,6 @@ def bed_to_df(bed_file):
     df.columns = ["#CHROM", "start", "end", "description"]
 
     return df
-
-
-def remove_position_range(df):
-
-    INDELs = df[df['Position'].str.contains(r'\|-[ATCG]+', regex=True)]
-
-    bed_df = pd.DataFrame()
-    bed_df['#CHROM'] = INDELs['Position'].str.split('|').str[0]
-    bed_df['start'] = INDELs['Position'].str.split(
-        '|').str[2].astype('int') + 1
-    bed_df['length'] = INDELs['Position'].str.split(
-        r'\|-').str[1].str.len().astype('int')
-    bed_df['end'] = INDELs['Position'].str.split('|').str[2].astype(
-        'int') + INDELs['Position'].str.split(r'\|-').str[1].str.len().astype('int')
-
-    for _, row in df.iterrows():
-        position_number = int(row.Position.split("|")[2])
-        if any(start <= position_number <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
-            #logger.info('Position: {} removed found in {}'.format(row.Position, df))
-            df = df[df.Position != row.Position]
-    return df
-
 
 def import_VCF4_to_pandas(vcf_file, sep='\t'):
     header_lines = 0

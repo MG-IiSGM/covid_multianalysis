@@ -648,13 +648,12 @@ def main():
     compare_snp_matrix_recal_intermediate = full_path_compare + ".revised_intermediate.tsv"
     compare_snp_matrix_INDEL_intermediate = full_path_compare + \
         ".revised_INDEL_intermediate.tsv"
-    print('CREATE INTERMEDIATE')
     recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
-        out_variant_ivar_dir, out_stats_coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+        out_variant_ivar_dir, out_stats_coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp, remove_conflict=False)
     recalibrated_snp_matrix_intermediate.to_csv(
         compare_snp_matrix_recal_intermediate, sep="\t", index=False)
-    compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
-        recalibrated_snp_matrix_intermediate)
+    compare_snp_matrix_INDEL_intermediate_df = ddbb_create_intermediate(
+        out_variant_ivar_dir, out_stats_coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp, remove_conflict=True)
     compare_snp_matrix_INDEL_intermediate_df.to_csv(
         compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
     recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
