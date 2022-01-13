@@ -166,7 +166,7 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
-def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, remove_conflict=True):
+def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples=[], min_freq_discard=0.1, min_alt_dp=4, only_snp=True, remove_conflict=True):
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
 
@@ -1104,7 +1104,7 @@ if __name__ == '__main__':
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
             recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
-                input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+                input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp, remove_conflict=False)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
