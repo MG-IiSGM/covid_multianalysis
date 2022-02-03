@@ -674,7 +674,7 @@ def main():
     #####################CONSENSUS WITH REFINED CALL######
     ######################################################
     logger.info(GREEN + "Creating refined consensus" + END_FORMATTING)
-    create_consensus(reference, compare_snp_matrix_recal,
+    create_consensus(reference, compare_snp_matrix_INDEL,
                      out_stats_coverage_dir, out_consensus_dir)
 
     logger.info("\n\n" + MAGENTA + BOLD +

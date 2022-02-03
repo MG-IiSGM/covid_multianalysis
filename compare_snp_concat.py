@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import datetime
 import scipy.cluster.hierarchy as shc
 import scipy.spatial.distance as ssd  # pdist
-from misc import remove_low_quality
 
 logger = logging.getLogger()
 
@@ -54,9 +53,7 @@ def get_arguments():
 
     parser.add_argument('-o', '--output', type=str, required=True,
                         help='Name of all the output files, might include path')
-    parser.add_argument('--min_coverage', type=int, default=70, required=False,help='Minimum percentage of coverage at 30x to clasify as uncovered (Default 70)')
-    parser.add_argument('-u', '--max_unmap', type=int, default=10, required=False,
-                                    help='Maximum percentage of unmaped to clasify as uncovered (Default 10)')
+
     arguments = parser.parse_args()
 
     return arguments
@@ -91,29 +88,8 @@ def blank_database():
 
 # COMPARE SNP 2.0
 
-def remove_position_range(df):
 
-    INDELs = df[df['ALT'].str.contains(r'-[ATCG]+', regex=True)]
-
-    print(INDELs.head())
-
-    bed_df = pd.DataFrame()
-    bed_df['#CHROM'] = INDELs['REGION']
-    bed_df['start'] = INDELs['POS'].astype('int') + 1
-    bed_df['length'] = INDELs['ALT'].str.len() - 1
-    bed_df['end'] = bed_df['start'] + bed_df['length']
-
-    print(bed_df.head())
-
-    for _, row in df.iterrows():
-        position_number = int(row.POS)
-        if any(start <= position_number <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
-            #logger.info('Position: {} removed found in {}'.format(row.Position, df))
-            print(row)
-            df = df[df.POS != row.POS]
-    return df
-
-def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=True, remove_conflict=True):
+def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=True):
     base_file = os.path.basename(tsv_file)
     input_file = os.path.abspath(tsv_file)
     sample = base_file.split(".")[0]
@@ -128,11 +104,9 @@ def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=Tru
     df = df.rename(columns={'ALT_FREQ': sample})
     if only_snp == True:
         df = df[~(df.ALT.str.startswith('+') | df.ALT.str.startswith('-'))]
-    if remove_conflict:
-        print(df.head())
-        df = remove_position_range(df)
-
-    return df
+        return df
+    else:
+        return df
 
 
 def extract_lowfreq(tsv_file,  min_total_depth=4, min_alt_dp=4, min_freq_include=0.7, only_snp=True):
@@ -169,27 +143,31 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
-def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples=[], min_freq_discard=0.1, min_alt_dp=4, only_snp=True, remove_conflict=True):
+import time
+
+def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
-
-    list_good = []
-
-    # Collect all files that pass remove_low_quality() filter
+    df = []
     for root, _, files in os.walk(variant_dir):
         if root == variant_dir:
             for name in files:
-                if name.endswith('.tsv') and not any(value in name for value in remove_samples):
+                if name.endswith('.tsv'):
+                    logger.debug("Adding: " + name)
                     filename = os.path.join(root, name)
-                    list_good.append(filename)
+                    start_time = time.time()
+                    df.append(import_tsv_variants(filename, only_snp=only_snp).set_index(['REGION', 'POS', 'REF', 'ALT']))
+                    logger.debug("Import time %s seconds" % (time.time() - start_time))
+    
+    print('Terminado de cargar acrhivos. Empezando a concatenar')
+    start_time = time.time()
+    # df = df.merge(dfv, how='outer')
+    df = pd.concat(df, axis=1, join='outer')
+    logger.debug("Concat time %s seconds" % (time.time() - start_time))
 
-    for filename in list_good:
-        name = filename.split('/')[-1].split('.')[0]
-        logger.debug("Adding: " + name)
-        dfv = import_tsv_variants(filename, only_snp=only_snp, remove_conflict=remove_conflict)
-        df = df.merge(dfv, how='outer')
+                    
     # Round frequencies
-    df = df.round(2)
+    df = df.reset_index().round(2)
     #Remove <= 0.1 (parameter in function)
     def handle_lowfreq(x): return None if x <= min_freq_discard else x
     df.iloc[:, 4:] = df.iloc[:, 4:].applymap(handle_lowfreq)
@@ -199,12 +177,17 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples=[], min_f
     df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
 
     # Include poorly covered
-    for filename in list_good:
-        sample = filename.split('/')[-1].split('.')[0]
-        logger.debug("Adding lowfreqs: " + sample)
-        dfl = extract_lowfreq(filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
-        df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
-                            dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
+    for root, _, files in os.walk(variant_dir):
+        if root == variant_dir:
+            for name in files:
+                if name.endswith('.tsv'):
+                    filename = os.path.join(root, name)
+                    sample = name.split('.')[0]
+                    logger.debug("Adding lowfreqs: " + sample)
+                    dfl = extract_lowfreq(
+                        filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
+                    df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
+                        dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
 
     indel_positions = df[(df['REF'].str.len() > 1) | (
         df['ALT'].str.len() > 1)].POS.tolist()
@@ -223,7 +206,7 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, remove_samples=[], min_f
     samples_coverage = df.columns.tolist()[4:]
     for root, _, files in os.walk(coverage_dir):
         for name in files:
-            if name.endswith('.cov') and not any(value in name for value in remove_samples):
+            if name.endswith('.cov'):
                 filename = os.path.join(root, name)
                 sample = name.split('.')[0]
                 if sample in df.columns[4:]:
@@ -312,6 +295,28 @@ def bed_to_df(bed_file):
     df.columns = ["#CHROM", "start", "end", "description"]
 
     return df
+
+
+def remove_position_range(df):
+
+    INDELs = df[df['Position'].str.contains(r'\|-[ATCG]+', regex=True)]
+
+    bed_df = pd.DataFrame()
+    bed_df['#CHROM'] = INDELs['Position'].str.split('|').str[0]
+    bed_df['start'] = INDELs['Position'].str.split(
+        '|').str[2].astype('int') + 1
+    bed_df['length'] = INDELs['Position'].str.split(
+        r'\|-').str[1].str.len().astype('int')
+    bed_df['end'] = INDELs['Position'].str.split('|').str[2].astype(
+        'int') + INDELs['Position'].str.split(r'\|-').str[1].str.len().astype('int')
+
+    for _, row in df.iterrows():
+        position_number = int(row.Position.split("|")[2])
+        if any(start <= position_number <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
+            #logger.info('Position: {} removed found in {}'.format(row.Position, df))
+            df = df[df.Position != row.Position]
+    return df
+
 
 def import_VCF4_to_pandas(vcf_file, sep='\t'):
     header_lines = 0
@@ -1101,34 +1106,32 @@ if __name__ == '__main__':
             ddtb_compare(compare_snp_matrix, distance=args.distance)
         else:
             coverage_dir = os.path.abspath(args.recalibrate)
-            # compare_snp_matrix_recal = group_compare + ".revised.final.tsv"
+            compare_snp_matrix_recal = group_compare + ".revised.final.tsv"
             compare_snp_matrix_INDEL = group_compare + ".revised_INDEL.final.tsv"
-            # compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
+            compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
-
-            remove_samples = remove_low_quality(output_dir, group_name, min_coverage=args.min_coverage, max_unmap=args.max_unmap)
-            compare_snp_matrix_INDEL_intermediate_df = ddbb_create_intermediate(
-                input_dir, coverage_dir, remove_samples, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp, remove_conflict=True)
+            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
+                input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
-                compare_snp_matrix_INDEL_intermediate_df = remove_bed_positions(
-                    compare_snp_matrix_INDEL_intermediate_df, args.remove_bed)
-            # recalibrated_snp_matrix_intermediate.to_csv(
-            #     compare_snp_matrix_recal_intermediate, sep="\t", index=False)
-            # compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
-            #     recalibrated_snp_matrix_intermediate)
+                recalibrated_snp_matrix_intermediate = remove_bed_positions(
+                    recalibrated_snp_matrix_intermediate, args.remove_bed)
+            recalibrated_snp_matrix_intermediate.to_csv(
+                compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+            compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
+                recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(
                 compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
-            # recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
-            #                                      min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            # recalibrated_revised_df.to_csv(
-            #     compare_snp_matrix_recal, sep="\t", index=False)
+            recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
+                                                 min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+            recalibrated_revised_df.to_csv(
+                compare_snp_matrix_recal, sep="\t", index=False)
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(
                 compare_snp_matrix_INDEL, sep="\t", index=False)
 
-            # ddtb_compare(compare_snp_matrix_recal, distance=args.distance)
+            ddtb_compare(compare_snp_matrix_recal, distance=args.distance)
             ddtb_compare(compare_snp_matrix_INDEL,
                          distance=args.distance, indel=True)
     else:
