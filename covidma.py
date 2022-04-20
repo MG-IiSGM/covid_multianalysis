@@ -62,108 +62,96 @@ CYAN = '\033[36m'
 YELLOW = '\033[93m'
 DIM = '\033[2m'
 
-logger = logging.getLogger()
+### ARGUMENTS
 
+def get_arguments():
 
-def main():
+    parser = argparse.ArgumentParser(
+        prog='covidma.py', description='Pipeline to call variants (SNVs) with any non model organism. Specialised in SARS-CoV-2')
+
+    input_group = parser.add_argument_group('Input', 'Input parameters')
+
+    input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory",
+                                type=str, required=True, help='REQUIRED.Input directory containing all fast[aq] files')
+    input_group.add_argument('-r', '--reference', metavar="reference",
+                                type=str, required=True, help='REQUIRED. File to map against')
+    input_group.add_argument('-a', '--annotation', metavar="annotation",
+                                type=str, required=True, help='REQUIRED. gff3 file to annotate variants')
+    input_group.add_argument('-s', '--sample', metavar="sample", type=str,
+                                required=False, help='Sample to identify further files')
+    input_group.add_argument('-L', '--sample_list', type=str, required=False,
+                                help='Sample names to analyse only in the file supplied')
+    input_group.add_argument('-p', '--primers', type=str, default='/home/laura/DATABASES/Anotacion/COVID/primers/nCoV-2019.bed',
+                                required=False, help='Bed file including primers to trim')
+
+    quality_group = parser.add_argument_group(
+        'Quality parameters', 'parameters for diferent triming conditions')
+
+    quality_group.add_argument('-c', '--coverage20', type=int, default=90, required=False,
+                                help='Minimum percentage of coverage at 20x to clasify as uncovered (Default 90)')
+    quality_group.add_argument('-n', '--min_snp', type=int, required=False,
+                                default=1, help='SNP number to pass quality threshold')
+
+    output_group = parser.add_argument_group(
+        'Output', 'Required parameter to output results')
+
+    output_group.add_argument('-o', '--output', type=str, required=True,
+                                help='REQUIRED. Output directory to extract all results')
+    output_group.add_argument('-C', '--noclean', required=False,
+                                action='store_false', help='Clean unwanted files for standard execution')
+
+    params_group = parser.add_argument_group(
+        'Parameters', 'parameters for diferent stringent conditions')
+
+    params_group.add_argument('-T', '--threads', type=str, dest="threads",
+                                required=False, default=16, help='Threads to use')
+    params_group.add_argument('-M', '--memory', type=str, dest="memory",
+                                required=False, default=32, help='Max memory to use')
+
+    annot_group = parser.add_argument_group(
+        'Annotation', 'parameters for variant annotation')
+
+    annot_group.add_argument('-B', '--annot_bed', type=str, default=[],
+                                required=False, action='append', help='bed file to annotate')
+    annot_group.add_argument('-V', '--annot_vcf', type=str, default=[],
+                                required=False, action='append', help='vcf file to annotate')
+    annot_group.add_argument('-A', '--annot_aa', type=str, default=[],
+                                required=False, action='append', help='aminoacid file to annotate')
+    annot_group.add_argument('-R', '--remove_bed', type=str, default=False,
+                                required=False, help='BED file with positions to remove')
+    annot_group.add_argument('--mash_database', type=str, required=False,
+                                default=False, help='MASH ncbi annotation containing all species database')
+    annot_group.add_argument('--snpeff_database', type=str, required=False,
+                                default='NC_045512.2', help='snpEFF annotation database')
+
+    compare_group = parser.add_argument_group(
+        'Compare', 'parameters for compare_snp')
+
+    compare_group.add_argument('-S', '--only_snp', required=False,
+                                action='store_true', help='Use INDELS while comparing')
+
+    arguments = parser.parse_args()
+
+    return arguments
+
+def create_logFile(group_name, logger):
     """
-    Create main function to capture code errors: https://stackoverflow.com/questions/6234405/logging-uncaught-exceptions-in-python
+    Function that creates a log file to store all steps 
+    of the pipeline.
+
+    In output/Logs a .log file is created
     """
 
-    # ARGUMENTS
-
-    def get_arguments():
-
-        parser = argparse.ArgumentParser(
-            prog='covidma.py', description='Pipeline to call variants (SNVs) with any non model organism. Specialised in SARS-CoV-2')
-
-        input_group = parser.add_argument_group('Input', 'Input parameters')
-
-        input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory",
-                                 type=str, required=True, help='REQUIRED.Input directory containing all fast[aq] files')
-        input_group.add_argument('-r', '--reference', metavar="reference",
-                                 type=str, required=True, help='REQUIRED. File to map against')
-        input_group.add_argument('-a', '--annotation', metavar="annotation",
-                                 type=str, required=True, help='REQUIRED. gff3 file to annotate variants')
-        input_group.add_argument('-s', '--sample', metavar="sample", type=str,
-                                 required=False, help='Sample to identify further files')
-        input_group.add_argument('-L', '--sample_list', type=str, required=False,
-                                 help='Sample names to analyse only in the file supplied')
-        input_group.add_argument('-p', '--primers', type=str, default='/home/laura/DATABASES/Anotacion/COVID/primers/nCoV-2019.bed',
-                                 required=False, help='Bed file including primers to trim')
-
-        quality_group = parser.add_argument_group(
-            'Quality parameters', 'parameters for diferent triming conditions')
-
-        quality_group.add_argument('-c', '--coverage20', type=int, default=90, required=False,
-                                   help='Minimum percentage of coverage at 20x to clasify as uncovered (Default 90)')
-        quality_group.add_argument('-n', '--min_snp', type=int, required=False,
-                                   default=1, help='SNP number to pass quality threshold')
-
-        output_group = parser.add_argument_group(
-            'Output', 'Required parameter to output results')
-
-        output_group.add_argument('-o', '--output', type=str, required=True,
-                                  help='REQUIRED. Output directory to extract all results')
-        output_group.add_argument('-C', '--noclean', required=False,
-                                  action='store_false', help='Clean unwanted files for standard execution')
-
-        params_group = parser.add_argument_group(
-            'Parameters', 'parameters for diferent stringent conditions')
-
-        params_group.add_argument('-T', '--threads', type=str, dest="threads",
-                                  required=False, default=16, help='Threads to use')
-        params_group.add_argument('-M', '--memory', type=str, dest="memory",
-                                  required=False, default=32, help='Max memory to use')
-
-        annot_group = parser.add_argument_group(
-            'Annotation', 'parameters for variant annotation')
-
-        annot_group.add_argument('-B', '--annot_bed', type=str, default=[],
-                                 required=False, action='append', help='bed file to annotate')
-        annot_group.add_argument('-V', '--annot_vcf', type=str, default=[],
-                                 required=False, action='append', help='vcf file to annotate')
-        annot_group.add_argument('-A', '--annot_aa', type=str, default=[],
-                                 required=False, action='append', help='aminoacid file to annotate')
-        annot_group.add_argument('-R', '--remove_bed', type=str, default=False,
-                                 required=False, help='BED file with positions to remove')
-        annot_group.add_argument('--mash_database', type=str, required=False,
-                                 default=False, help='MASH ncbi annotation containing all species database')
-        annot_group.add_argument('--snpeff_database', type=str, required=False,
-                                 default='NC_045512.2', help='snpEFF annotation database')
-
-        compare_group = parser.add_argument_group(
-            'Compare', 'parameters for compare_snp')
-
-        compare_group.add_argument('-S', '--only_snp', required=False,
-                                   action='store_true', help='Use INDELS while comparing')
-
-        arguments = parser.parse_args()
-
-        return arguments
-
-    args = get_arguments()
-
-    ######################################################################
-    #####################START PIPELINE###################################
-    ######################################################################
-    output = os.path.abspath(args.output)
-    group_name = output.split("/")[-1]
-    reference = os.path.abspath(args.reference)
-    annotation = os.path.abspath(args.annotation)
-
-    # LOGGING
-    # Create log file with date and time
-    right_now = str(datetime.datetime.now())
-    right_now_full = "_".join(right_now.split(" "))
-    log_filename = group_name + "_" + right_now_full + ".log"
+    # Name of the filename
+    log_filename = group_name + "_" + str(datetime.datetime.now().date()) + "_" + str(datetime.datetime.now().time()) + ".log"
+    # Folder Logs
     log_folder = os.path.join(output, 'Logs')
+    # Create Logs file
     check_create_dir(log_folder)
+    # Absolute path
     log_full_path = os.path.join(log_folder, log_filename)
 
-    logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-
     formatter = logging.Formatter('%(asctime)s:%(message)s')
 
     file_handler = logging.FileHandler(log_full_path)
@@ -172,26 +160,27 @@ def main():
 
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
-    # stream_handler.setFormatter(formatter)
 
     logger.addHandler(stream_handler)
     logger.addHandler(file_handler)
-
-    logger.info("\n\n" + BLUE + BOLD +
-                "STARTING PIPELINE IN GROUP: " + group_name + END_FORMATTING)
-
-    today = str(datetime.date.today())
-
+    logger.info("\n\n" + "STARTING PIPELINE IN GROUP: " + group_name + END_FORMATTING)
     logger.info("ARGUMENTS:")
     logger.info(str(args))
 
-    # Obtain all R1 and R2 from folder
+def obtain_reads(args, logger):
+    """
+    Function that extract name reads files and check wether
+    samples need reanalysis or not
+    """
+
+    # Obtain all R1 and R2 files from folder
     r1, r2 = extract_read_list(args.input_dir)
 
     # Check if there are samples to filter out
     sample_list_F = []
     if args.sample_list == None:
         logger.info("\n" + "No samples to filter")
+        # As not samples need to be filtered, we extract all samples
         for r1_file, r2_file in zip(r1, r2):
             sample = extract_sample(r1_file, r2_file)
             sample_list_F.append(sample)
@@ -199,329 +188,315 @@ def main():
         logger.info("samples will be filtered")
         sample_list_F = file_to_list(args.sample_list)
 
+    # Check if samples have been already analysed (Bam directory is created)
+    # new samples contain samples not already analysed second time
+    # a run is performed
     new_samples = check_reanalysis(args.output, sample_list_F)
-
     logger.info("\n%d samples will be analysed: %s" %
                 (len(new_samples), ",".join(new_samples)))
-
-    #PREPARE REFERENCE FOR MAPPING + FAI + DICT #########
-    #####################################################
-
-    # picard_dictionary(args)
+    
+    # Prepare reference for mapping + fai + dict
     samtools_faidx(args)
 
-    #DECLARE FOLDERS CREATED IN PIPELINE ################
-    #AND KEY FILES ######################################
-    #####################################################
-    # Annotation related parameters
-    # script_dir = os.path.dirname(os.path.realpath(__file__))
+    # Returns paired-reads absolute path and samples ID
+    return (r1, r2, sample_list_F, new_samples)
 
-    # Output related
-    out_qc_dir = os.path.join(output, "Quality")
-    out_qc_pre_dir = os.path.join(out_qc_dir, "raw")  # subfolder
-    out_qc_post_dir = os.path.join(out_qc_dir, "processed")  # subfolder
-    out_trim_dir = os.path.join(output, "Trimmed")
-    out_map_dir = os.path.join(output, "Bam")
-    out_variant_dir = os.path.join(output, "Variants")
-    out_variant_ivar_dir = os.path.join(
-        out_variant_dir, "ivar_raw")  # subfolder
-    out_filtered_ivar_dir = os.path.join(
-        out_variant_dir, "ivar_filtered")  # subfolder
-    out_consensus_dir = os.path.join(output, "Consensus")
-    out_consensus_ivar_dir = os.path.join(
-        out_consensus_dir, "ivar")  # subfolder
+def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, logger, args, sample):
+    """
+    Function that check reads quality with fastqc
+    Output is located in output/name_folder/sub_folder_name
+    """
 
-    out_stats_dir = os.path.join(output, "Stats")
-    out_stats_bamstats_dir = os.path.join(
-        out_stats_dir, "Bamstats")  # subfolder
-    out_stats_coverage_dir = os.path.join(
-        out_stats_dir, "Coverage")  # subfolder
-    out_compare_dir = os.path.join(output, "Compare")
+    # Set name files
+    out_dir = os.path.join(output, name_folder)                                 # folder
+    check_create_dir(out_dir)                                                   # check if folder exists
+    out_name_r1 = r1_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r1 file name
+    out_name_r2 = r2_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r2 file name
+    out_subdir = os.path.join(out_dir, sub_folder_name)                         # subfolder
+    output_qc_file_r1 = os.path.join(out_subdir, out_name_r1)                   # absolute path r1
+    output_qc_file_r2 = os.path.join(out_subdir, out_name_r2)                   # absolute path r2
 
-    out_annot_dir = os.path.join(output, "Annotation")
-    out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")  # subfolder
-    out_annot_pangolin_dir = os.path.join(
-        out_annot_dir, "pangolin")  # subfolder
-    out_annot_user_dir = os.path.join(out_annot_dir, "user")  # subfolder
-    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+    # Check if quality have been already computed
+    if os.path.isfile(output_qc_file_r1) and os.path.isfile(output_qc_file_r2):
+        logger.info(YELLOW + DIM + output_qc_file_r1 +
+                    " EXIST\nOmmiting QC for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Checking quality in sample " + sample + END_FORMATTING)
+        logger.info("R1: " + r1_file + "\nR2: " + r2_file)
+        # Check quality with fastqc
+        fastqc_quality(r1_file, r2_file, out_subdir, args.threads)
 
-    new_sample_number = 0
+def trim_read(r1_file, r2_file, logger, sample, output):
+    """
+    Function that trim reads considering some restrictions
+    using fastp
 
-    for r1_file, r2_file in zip(r1, r2):
-        # EXtract sample name
-        sample = extract_sample(r1_file, r2_file)
-        args.sample = sample
-        if sample in sample_list_F:
+    Output is located in output/Trimmed
+    """
 
-            sample_number = str(sample_list_F.index(sample) + 1)
-            sample_total = str(len(sample_list_F))
+    # Set name files
+    out_trim_dir = os.path.join(output, "Trimmed")                          # Folder
+    out_trim_name_r1 = sample + ".trimmed_R1.fastq.gz"                      # r1 filename
+    out_trim_name_r2 = sample + ".trimmed_R2.fastq.gz"                      # r2 filanema
+    output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)  # absolute path r1 filename
+    output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)  # absolute path r2 filename
 
-            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"
-            output_markdup_trimmed_file = os.path.join(
-                out_map_dir, out_markdup_trimmed_name)
+    # Check if trimming has already been performed
+    if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
+        logger.info(YELLOW + DIM + output_trimming_file_r1 +
+                    " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Trimming sample " +
+                    sample + END_FORMATTING)
+        # Use fastp for trimming
+        fastp_trimming(r1_file, r2_file, sample, out_trim_dir, threads=args.threads, 
+            min_qual=20, window_size=10, min_len=35)
+    
+    # Return path of trimmed files
+    return (output_trimming_file_r1, output_trimming_file_r2)
 
-            if sample in new_samples:
-                new_sample_number = str(int(new_sample_number) + 1)
-                new_sample_total = str(len(new_samples))
-                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
-            else:
-                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+def mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output):
+    """
+    Function that maps reads in reference genome using BWA
+    Then, transform sam file to sorted bam file.
 
-            if not os.path.isfile(output_markdup_trimmed_file):
+    Output is located in Bam directory
+    """
 
-                args.r1_file = r1_file
-                args.r2_file = r2_file
+    out_map_dir = os.path.join(output, "Bam")                       # folder
+    out_map_name = sample + ".rg.sorted.bam"                        # file name
+    output_map_file = os.path.join(out_map_dir, out_map_name)       # absolute path file name
 
-                ##############START PIPELINE#####################
-                #################################################
+    # Check if mapping has already been performed
+    if os.path.isfile(output_map_file):
+        logger.info(YELLOW + DIM + output_map_file +
+                    " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Mapping sample " +
+                    sample + END_FORMATTING)
+        logger.info("R1: " + output_trimming_file_r1 + "\nR2: " +
+                    output_trimming_file_r2 + "\nReference: " + reference)
+        
+        # Mapping to reference using BWA. As output a sam file is created
+        bwa_mapping(output_trimming_file_r1, output_trimming_file_r2,
+                    reference, sample, out_map_dir, threads=args.threads)
+        # Converts sam file to bam file using samtools and sort alingments
+        sam_to_index_bam(sample, out_map_dir, output_trimming_file_r1, threads=args.threads)
+    
+    # Return absolute path mapped file
+    return (output_map_file)
 
-                # INPUT ARGUMENTS
-                ################
-                check_file_exists(r1_file)
-                check_file_exists(r2_file)
+def mark_duplicates(logger, output_map_file, sample, output):
+    """
+    Function that marks and remove duplicates using picard tools
 
-                args.output = os.path.abspath(args.output)
-                check_create_dir(args.output)
+    Sorted bam file is removed and just a sorted bam file without
+    duplicates is kept. Output is located in Bam directory.
+    """
 
-                # QUALITY CHECK in RAW with fastqc
-                ######################################################
-                check_create_dir(out_qc_dir)
+    out_map_dir = os.path.join(output, "Bam")                           # Folder
+    out_markdup_name = sample + ".rg.markdup.sorted.bam"                # Filename
+    output_markdup_file = os.path.join(out_map_dir, out_markdup_name)   # absolute path file name
 
-                out_qc_raw_name_r1 = (".").join(r1_file.split(
-                    '/')[-1].split('.')[0:-2]) + '_fastqc.html'
-                out_qc_raw_name_r2 = (".").join(r2_file.split(
-                    '/')[-1].split('.')[0:-2]) + '_fastqc.html'
-                output_qc_raw_file_r1 = os.path.join(
-                    out_qc_pre_dir, out_qc_raw_name_r1)
-                output_qc_raw_file_r2 = os.path.join(
-                    out_qc_pre_dir, out_qc_raw_name_r2)
+    # Check if mark duplicates has already been performed
+    if os.path.isfile(output_markdup_file):
+        logger.info(YELLOW + DIM + output_markdup_file +
+                    " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Marking Dupes in sample " +
+                    sample + END_FORMATTING)
+        logger.info("Input Bam: " + output_map_file)
+        # Mark and delete duplicates with picard tools
+        picard_markdup(output_map_file) 
+    
+    # Return absolute path marked and remove duplicates file
+    return (output_markdup_file)
 
-                if os.path.isfile(output_qc_raw_file_r1) and os.path.isfile(output_qc_raw_file_r2):
-                    logger.info(YELLOW + DIM + output_qc_raw_file_r1 +
-                                " EXIST\nOmmiting QC for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(
-                        GREEN + "Checking quality in sample " + sample + END_FORMATTING)
-                    logger.info("R1: " + r1_file + "\nR2: " + r2_file)
-                    fastqc_quality(r1_file, r2_file,
-                                   out_qc_pre_dir, args.threads)
+def trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args):
+    """
+    Function that trim reamining primers of aligned reads using ivar.
+    Then uses samtools to sort reads and create an index to access 
+    overlapping alignments quickly. 
 
-                """
-                TODO: Human filter
-                """
+    Output is located in Bam directory.
+    """
 
-                # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
-                ###################################################
-                out_trim_name_r1 = sample + ".trimmed_R1.fastq.gz"
-                out_trim_name_r2 = sample + ".trimmed_R2.fastq.gz"
-                output_trimming_file_r1 = os.path.join(
-                    out_trim_dir, out_trim_name_r1)
-                output_trimming_file_r2 = os.path.join(
-                    out_trim_dir, out_trim_name_r2)
+    # Check if output_markdup_trimmed_file exits
+    # If True, trimming is not performed
+    if os.path.isfile(output_markdup_trimmed_file):
+        logger.info(YELLOW + DIM + output_markdup_trimmed_file +
+                    " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Trimming primers in sample " + sample + END_FORMATTING)
+        logger.info("Input Bam: " + output_markdup_file)
+        # Trimming of remaining primers is performed with ivar
+        ivar_trim(output_markdup_file, args.primers, sample,
+                    min_length=30, min_quality=20, sliding_window_width=4)
 
-                if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
-                    logger.info(YELLOW + DIM + output_trimming_file_r1 +
-                                " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(GREEN + "Trimming sample " +
-                                sample + END_FORMATTING)
-                    fastp_trimming(r1_file, r2_file, sample, out_trim_dir,
-                                   threads=args.threads, min_qual=20, window_size=10, min_len=35)
+def ivar_variant_calling(logger, output_markdup_trimmed_file, sample):
+    """
+    Function that performs variant calling using ivar
 
-                # QUALITY CHECK in TRIMMED with fastqc
-                ######################################################
-                check_create_dir(out_qc_dir)
+    Output is located in Variants/ivar_raw.
+    """
 
-                out_qc_pos_r1 = sample + ".trimmed_R1_fastqc.html"
-                out_qc_pos_r2 = sample + ".trimmed_R2_fastqc.html"
-                output_qc_precessed_file_r1 = os.path.join(
-                    out_qc_post_dir, out_qc_pos_r1)
-                output_qc_precessed_file_r2 = os.path.join(
-                    out_qc_post_dir, out_qc_pos_r2)
+    out_variant_dir = os.path.join(output, "Variants")                                      # Folder
+    check_create_dir(out_variant_dir)                                                       # Check if folder is created
+    out_ivar_variant_name = sample + ".tsv"                                                 # Variant calling outup file name
+    out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")                        # subfolder
+    out_ivar_variant_file = os.path.join(out_variant_ivar_dir, out_ivar_variant_name)
 
-                if os.path.isfile(output_qc_precessed_file_r1) and os.path.isfile(output_qc_precessed_file_r2):
-                    logger.info(YELLOW + DIM + output_qc_raw_file_r1 +
-                                " EXIST\nOmmiting QC for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(
-                        GREEN + "Checking quality in processed sample " + sample + END_FORMATTING)
-                    logger.info("R1: " + output_trimming_file_r1 +
-                                "\nR2: " + output_trimming_file_r2)
-                    fastqc_quality(
-                        output_trimming_file_r1, output_trimming_file_r2, out_qc_post_dir, args.threads)
+    # Check if variant calling has already been performed
+    if os.path.isfile(out_ivar_variant_file):
+        logger.info(YELLOW + DIM + out_ivar_variant_file +
+                    " EXIST\nOmmiting Variant call for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Calling variants with ivar in sample " + sample + END_FORMATTING)
+        # Perform variant calling using ivar
+        ivar_variants(reference, output_markdup_trimmed_file, out_variant_dir, sample,
+                        annotation, min_quality=15, min_frequency_threshold=0.01, min_depth=1)
+    
+    # Return vcf file name
+    return (out_ivar_variant_file, out_variant_ivar_dir)
 
-                # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-                #####################################################
-                out_map_name = sample + ".rg.sorted.bam"
-                output_map_file = os.path.join(out_map_dir, out_map_name)
+def variant_filtering(output, sample, out_ivar_variant_file, logger):
+    """
+    Filter variants that does not satisfy:
+        * min_frequency=0.7
+        * min_total_depth=10
+        * min_alt_dp=4
+        * is_pass=True
+        * only_snp=False
+    
+    Output is located in Variants/ivar_filtered.
+    """
 
-                if os.path.isfile(output_map_file):
-                    logger.info(YELLOW + DIM + output_map_file +
-                                " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(GREEN + "Mapping sample " +
-                                sample + END_FORMATTING)
-                    logger.info("R1: " + output_trimming_file_r1 + "\nR2: " +
-                                output_trimming_file_r2 + "\nReference: " + reference)
-                    bwa_mapping(output_trimming_file_r1, output_trimming_file_r2,
-                                reference, sample, out_map_dir, threads=args.threads)
-                    sam_to_index_bam(
-                        sample, out_map_dir, output_trimming_file_r1, threads=args.threads)
+    out_variant_dir = os.path.join(output, "Variants")                                      # Folder
+    check_create_dir(out_variant_dir)                                                       # Check if folder is created
+    out_ivar_variant_name = sample + ".tsv"                                                 # vcf file name
+    out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered")                  # subfolder
+    check_create_dir(out_filtered_ivar_dir)                                                 # Check if folder exits
+    out_ivar_filtered_file = os.path.join(out_filtered_ivar_dir, out_ivar_variant_name)     # Absolute path file name
 
-                #MARK DUPLICATES WITH PICARDTOOLS ###################
-                #####################################################
-                out_markdup_name = sample + ".rg.markdup.sorted.bam"
-                output_markdup_file = os.path.join(
-                    out_map_dir, out_markdup_name)
+    # Check if variant filtering has already been performed
+    # If True, filtering is skipped
+    if os.path.isfile(out_ivar_filtered_file):
+        logger.info(YELLOW + DIM + out_ivar_filtered_file +
+                    " EXIST\nOmmiting Variant filtering for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Filtering variants in sample " +
+                    sample + END_FORMATTING)
+        # Filter variants checking in pandas DataFrame 
+        filter_tsv_variants(out_ivar_variant_file, out_filtered_ivar_dir, min_frequency=0.7,
+                            min_total_depth=10, min_alt_dp=4, is_pass=True, only_snp=False)
+    
+    # Retrun ivar_filtered subfolder
+    return (out_filtered_ivar_dir)
 
-                if os.path.isfile(output_markdup_file):
-                    logger.info(YELLOW + DIM + output_markdup_file +
-                                " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(GREEN + "Marking Dupes in sample " +
-                                sample + END_FORMATTING)
-                    logger.info("Input Bam: " + output_map_file)
-                    picard_markdup(output_map_file)
+def consensus_create(output, sample, output_markdup_trimmed_file, logger):
+    """
+    Function that creates a consensus file from bam file after
+    trimming and removing duplicates.
 
-                #TRIM PRIMERS WITH ivar trim ########################
-                #####################################################
+    Output consensus file is in Consensus/ivar.
+    """
 
-                if os.path.isfile(output_markdup_trimmed_file):
-                    logger.info(YELLOW + DIM + output_markdup_trimmed_file +
-                                " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(
-                        GREEN + "Trimming primers in sample " + sample + END_FORMATTING)
-                    logger.info("Input Bam: " + output_markdup_file)
-                    ivar_trim(output_markdup_file, args.primers, sample,
-                              min_length=30, min_quality=20, sliding_window_width=4)
-            else:
-                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
-                            " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
+    out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
+    check_create_dir(out_consensus_dir)                                                         # Check if folder exists
+    out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")                            # subfolder
+    check_create_dir(out_consensus_ivar_dir)                                                    # Check if subfolder exists
+    out_ivar_consensus_name = sample + ".fa"                                                    # consensus fasta name file
+    out_ivar_consensus_file = os.path.join(out_consensus_ivar_dir, out_ivar_consensus_name)     # Abosolute path consensus file
 
-            ########################END OF MAPPING AND BAM MANIPULATION#####################################################################
-            ################################################################################################################################
+    # Check if consesnsus file already exists
+    # If True, a consensus file is not created
+    if os.path.isfile(out_ivar_consensus_file):
+        logger.info(YELLOW + DIM + out_ivar_consensus_file +
+                    " EXIST\nOmmiting Consensus for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Creating consensus with ivar in sample " + sample + END_FORMATTING)
+        # Create a consensus file using ivar.
+        ivar_consensus(output_markdup_trimmed_file, out_consensus_ivar_dir, sample,
+                        min_quality=20, min_frequency_threshold=0.8, min_depth=20, uncovered_character='N')
+        logger.info(
+            GREEN + "Replacing consensus header in " + sample + END_FORMATTING)
+        # As header of fasta file is the sample name
+        replace_consensus_header(out_ivar_consensus_file)
 
-            #VARIANT CALLING WTIH ivar variants##################
-            #####################################################
-            check_create_dir(out_variant_dir)
-            out_ivar_variant_name = sample + ".tsv"
-            out_ivar_variant_file = os.path.join(
-                out_variant_ivar_dir, out_ivar_variant_name)
+def bamstats(output, sample, output_markdup_trimmed_file, logger):
+    """
+    Function that compute some metrics from bam file
+    trimmed and without duplicates, using samtools.
 
-            if os.path.isfile(out_ivar_variant_file):
-                logger.info(YELLOW + DIM + out_ivar_variant_file +
-                            " EXIST\nOmmiting Variant call for  sample " + sample + END_FORMATTING)
-            else:
-                logger.info(
-                    GREEN + "Calling variants with ivar in sample " + sample + END_FORMATTING)
-                ivar_variants(reference, output_markdup_trimmed_file, out_variant_dir, sample,
-                              annotation, min_quality=15, min_frequency_threshold=0.01, min_depth=1)
+    Output is located in Stats/Bamstats.
+    """
 
-            #VARIANT FILTERING ##################################
-            #####################################################
-            check_create_dir(out_filtered_ivar_dir)
-            out_ivar_filtered_file = os.path.join(
-                out_filtered_ivar_dir, out_ivar_variant_name)
+    out_stats_dir = os.path.join(output, "Stats")                                       # Folder
+    check_create_dir(out_stats_dir)                                                     # Check if folder exists
+    out_stats_bamstats_dir = os.path.join(out_stats_dir, "Bamstats")                    # subfolder
+    check_create_dir(out_stats_bamstats_dir)                                            # Check if subfolder exists
+    out_bamstats_name = sample + ".bamstats"                                            # Output filename
+    out_bamstats_file = os.path.join(out_stats_bamstats_dir, out_bamstats_name)         # absolute path to filename
 
-            if os.path.isfile(out_ivar_filtered_file):
-                logger.info(YELLOW + DIM + out_ivar_filtered_file +
-                            " EXIST\nOmmiting Variant filtering for  sample " + sample + END_FORMATTING)
-            else:
-                logger.info(GREEN + "Filtering variants in sample " +
-                            sample + END_FORMATTING)
-                filter_tsv_variants(out_ivar_variant_file, out_filtered_ivar_dir, min_frequency=0.7,
-                                    min_total_depth=10, min_alt_dp=4, is_pass=True, only_snp=False)
+    # Check if Bam stats have already been computed
+    # If True it is skipped.
+    if os.path.isfile(out_bamstats_file):
+        logger.info(YELLOW + DIM + out_bamstats_file +
+                    " EXIST\nOmmiting Bamstats for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Creating bamstats in sample " +
+                    sample + END_FORMATTING)
+        # Compute metrics from bam file using samtools
+        create_bamstat(output_markdup_trimmed_file,
+                        out_stats_bamstats_dir, sample, threads=args.threads)
 
-            #CREATE CONSENSUS with ivar consensus##################
-            #######################################################
-            check_create_dir(out_consensus_dir)
-            check_create_dir(out_consensus_ivar_dir)
-            out_ivar_consensus_name = sample + ".fa"
-            out_ivar_consensus_file = os.path.join(
-                out_consensus_ivar_dir, out_ivar_consensus_name)
+def coverage_stats(output, sample, output_markdup_trimmed_file, logger):
+    """
+    Function that compute some metrics realted to coverage
+    from bam file trimmed and without duplicates, using samtools.
 
-            if os.path.isfile(out_ivar_consensus_file):
-                logger.info(YELLOW + DIM + out_ivar_consensus_file +
-                            " EXIST\nOmmiting Consensus for  sample " + sample + END_FORMATTING)
-            else:
-                logger.info(
-                    GREEN + "Creating consensus with ivar in sample " + sample + END_FORMATTING)
-                ivar_consensus(output_markdup_trimmed_file, out_consensus_ivar_dir, sample,
-                               min_quality=20, min_frequency_threshold=0.8, min_depth=20, uncovered_character='N')
-                logger.info(
-                    GREEN + "Replacing consensus header in " + sample + END_FORMATTING)
-                replace_consensus_header(out_ivar_consensus_file)
+    Output is located in Stats/Coverage.
+    """
 
-            ########################CREATE STATS AND QUALITY FILTERS########################################################################
-            ################################################################################################################################
-            #CREATE Bamstats#######################################
-            #######################################################
-            check_create_dir(out_stats_dir)
-            check_create_dir(out_stats_bamstats_dir)
-            out_bamstats_name = sample + ".bamstats"
-            out_bamstats_file = os.path.join(
-                out_stats_bamstats_dir, out_bamstats_name)
+    out_stats_dir = os.path.join(output, "Stats")                                   # Folder
+    check_create_dir(out_stats_dir)                                                 # Check if folder exists
+    out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")                # subfolder
+    check_create_dir(out_stats_coverage_dir)                                        # Check if sulbfolder exists
+    out_coverage_name = sample + ".cov"                                             # Name output file
+    out_coverage_file = os.path.join(out_stats_coverage_dir, out_coverage_name)     # Absolute output path name
 
-            if os.path.isfile(out_bamstats_file):
-                logger.info(YELLOW + DIM + out_bamstats_file +
-                            " EXIST\nOmmiting Bamstats for  sample " + sample + END_FORMATTING)
-            else:
-                logger.info(GREEN + "Creating bamstats in sample " +
-                            sample + END_FORMATTING)
-                create_bamstat(output_markdup_trimmed_file,
-                               out_stats_bamstats_dir, sample, threads=args.threads)
+    # Check if metrics have already been computed
+    # If True, this part is skipped
+    if os.path.isfile(out_coverage_file):
+        logger.info(YELLOW + DIM + out_coverage_file +
+                    " EXIST\nOmmiting Bamstats for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(GREEN + "Creating coverage in sample " +
+                    sample + END_FORMATTING)
+        # Compute coverage metrics using samtools
+        create_coverage(output_markdup_trimmed_file,
+                        out_stats_coverage_dir, sample)
+    
+    # Return absolute path Stats directory
+    return (out_stats_coverage_dir)
 
-            #CREATE Bamstats#######################################
-            #######################################################
-            check_create_dir(out_stats_coverage_dir)
-            out_coverage_name = sample + ".cov"
-            out_coverage_file = os.path.join(
-                out_stats_coverage_dir, out_coverage_name)
+def snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir):
+    """
+    Function that annotates variants using snpEff.
 
-            if os.path.isfile(out_coverage_file):
-                logger.info(YELLOW + DIM + out_coverage_file +
-                            " EXIST\nOmmiting Bamstats for  sample " + sample + END_FORMATTING)
-            else:
-                logger.info(GREEN + "Creating coverage in sample " +
-                            sample + END_FORMATTING)
-                create_coverage(output_markdup_trimmed_file,
-                                out_stats_coverage_dir, sample)
+    Annotations are stored in Annotation/snpeff.
+    """
 
-    # fastqc OUTPUT FORMAT FOR COMPARISON
-    ######################################################
-    logger.info(
-        GREEN + "Creating summary report for quality result " + END_FORMATTING)
-    # format_html_image(out_qc_dir)
-
-    # coverage OUTPUT SUMMARY
-    ######################################################
-    logger.info(
-        GREEN + "Creating summary report for coverage result " + END_FORMATTING)
-    obtain_group_cov_stats(out_stats_coverage_dir, group_name)
-
-    # READS and VARIANTS OUTPUT SUMMARY
-    ######################################################
-    logger.info(GREEN + "Creating overal summary report " + END_FORMATTING)
-    obtain_overal_stats(output, group_name)
-
-    # REMOVE UNCOVERED
-    ##############################################################################################################################
-    logger.info(GREEN + "Removing low quality samples" + END_FORMATTING)
-    # remove_low_quality(output, min_percentage_20x=args.coverage20,
-    #                   min_hq_snp=args.min_snp, type_remove='Uncovered')
-
-    #ANNOTATION WITH SNPEFF, USER INOUT AND PANGOLIN ####
-    #####################################################
-    logger.info("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " +
-                group_name + END_FORMATTING + "\n")
-    check_create_dir(out_annot_dir)
-    check_create_dir(out_annot_snpeff_dir)
-    check_create_dir(out_annot_pangolin_dir)
-    # SNPEFF
-    if args.snpeff_database != False:
+    out_annot_dir = os.path.join(output, "Annotation")              # Folder
+    check_create_dir(out_annot_dir)                                 # Check if folder exits
+    out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
+    check_create_dir(out_annot_snpeff_dir)                          # Check if subfolder exists
+    
+    if args.snpeff_database:
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_filtered_ivar_dir):
             if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -529,8 +504,10 @@ def main():
                     if name.endswith('.tsv'):
                         sample = name.split('.')[0]
                         filename = os.path.join(root, name)
-                        out_annot_file = os.path.join(
-                            out_annot_snpeff_dir, sample + ".annot")
+                        out_annot_file = os.path.join(out_annot_snpeff_dir, sample + ".annot")  # Absolute path file name
+
+                        # Check if annotation has already been performed
+                        # If True, annotation is skipped
                         if os.path.isfile(out_annot_file):
                             logger.info(YELLOW + DIM + out_annot_file +
                                         " EXIST\nOmmiting snpEff Annotation for sample " + sample + END_FORMATTING)
@@ -539,14 +516,28 @@ def main():
                                 GREEN + "Annotating sample with snpEff: " + sample + END_FORMATTING)
                             output_vcf = os.path.join(
                                 out_annot_snpeff_dir, sample + '.vcf')
-                            annotate_snpeff(
-                                filename, output_vcf, out_annot_file, database=args.snpeff_database)
+                            # Annotates variants using snpEff
+                            annotate_snpeff(filename, output_vcf, out_annot_file, database=args.snpeff_database)
+    
+    # Return Annotation/snpeff folder
+    return (out_annot_snpeff_dir)
+
+def annotate_user(args, logger, output, sample, out_variant_ivar_dir):
+    """
+    Function that annotate variants from user files.
+
+    Output is located in Annotation/user.
+    """
+
     # USER DEFINED
     if not args.annot_bed and not args.annot_vcf:
         logger.info(
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
     else:
-        check_create_dir(out_annot_user_dir)
+        out_annot_dir = os.path.join(output, "Annotation")          # Folder
+        check_create_dir(out_annot_dir)                             # Check if folder exits
+        out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
+        check_create_dir(out_annot_user_dir)                        # Check if subfolder exists
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_variant_ivar_dir):
             if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -558,15 +549,25 @@ def main():
                         filename = os.path.join(root, name)
                         out_annot_file = os.path.join(
                             out_annot_user_dir, sample + ".tsv")
-                        user_annotation(
-                            filename, out_annot_file, vcf_files=args.annot_vcf, bed_files=args.annot_bed)
+                        # Perform user annotation
+                        user_annotation(filename, out_annot_file, vcf_files=args.annot_vcf, bed_files=args.annot_bed)
+
+def useraa_annotation(output, logger, sample, out_annot_snpeff_dir):
+    """
+    Function that annotate variants from user aa files.
+
+    Output is located in Annotation/user_aa.
+    """
 
     # USER AA DEFINED
     if not args.annot_aa:
         logger.info(
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
-        check_create_dir(out_annot_user_aa_dir)
+        out_annot_dir = os.path.join(output, "Annotation")              # Folder
+        check_create_dir(out_annot_dir)                                 # Check if folder exits
+        out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+        check_create_dir(out_annot_user_aa_dir)                         # Check if subfolder exists
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
@@ -577,16 +578,37 @@ def main():
                         filename = os.path.join(root, name)
                         out_annot_aa_file = os.path.join(
                             out_annot_user_aa_dir, sample + ".tsv")
+                        # Perform user annotation
                         if os.path.isfile(out_annot_aa_file):
                             user_annotation_aa(
                                 out_annot_aa_file, out_annot_aa_file, aa_files=args.annot_aa)
                         else:
                             user_annotation_aa(
                                 filename, out_annot_aa_file, aa_files=args.annot_aa)
+    
+    # Return Annotation/user_aa absolute path
+    return (out_annot_user_aa_dir)
 
-    # PANGOLIN
+def pangolin_annot(output, logger, args):
+    """
+    Function that annotate consensus (Consensus/ivar) fasta files
+    with pangolin in order to obtain the sample linage.
+
+    The output is stored in Annotation/pangolin.
+    """
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
         futures_pangolin = []
+
+        out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
+        check_create_dir(out_consensus_dir)                                                         # Check if folder exists
+        out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")                            # subfolder
+        check_create_dir(out_consensus_ivar_dir)                                                    # Check if subfolder exists
+
+        out_annot_dir = os.path.join(output, "Annotation")                  # Folder
+        check_create_dir(out_annot_dir)                                     # Check if folder exists
+        out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
+        check_create_dir(out_annot_pangolin_dir)                            # Check if subfolder exists
 
         for root, _, files in os.walk(out_consensus_ivar_dir):
             if root == out_consensus_ivar_dir:
@@ -603,15 +625,20 @@ def main():
                         else:
                             logger.info(
                                 GREEN + "Obtaining Lineage in sample " + sample + END_FORMATTING)
+                            # Annotate variants with pangolin to obtain the linage
                             future = executor.submit(
                                 annotate_pangolin, filename, out_annot_pangolin_dir, out_pangolin_filename, threads=args.threads, max_ambig=0.6)
                             futures_pangolin.append(future)
                 for future in concurrent.futures.as_completed(futures_pangolin):
                     logger.info(future.result())
-                    # annotate_pangolin(filename, out_annot_pangolin_dir,
-                    #                out_pangolin_filename, threads=args.threads, max_ambig=0.6)
 
-    # USER AA TO HTML
+def user_aa_to_html(out_annot_user_aa_dir, group_name):
+    """
+    Function that converts user_aa annotation to html.
+
+    Html files are generated in Annotation/user_aa.
+    """
+
     annotated_samples = []
     logger.info('Adapting annotation to html in {}'.format(group_name))
     for root, _, files in os.walk(out_annot_user_aa_dir):
@@ -628,13 +655,23 @@ def main():
     with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
         f.write(report_samples_html_all)
 
-    # SNP COMPARISON using tsv variant files
-    ######################################################
+def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir):
+    """
+    Function that performs SNP comparison. As output is obtained a 
+    pairwise distance matrix and dendrogram. 
+
+    Output is located in Compare/FOLDER/.
+    """
+
     logger.info("\n\n" + BLUE + BOLD + "STARTING COMPARISON IN GROUP: " +
                 group_name + END_FORMATTING + "\n")
+    out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
+    check_create_dir(out_consensus_dir)                                                         # Check if folder exists
+    
 
-    check_create_dir(out_compare_dir)
-    folder_compare = today + "_" + group_name
+    out_compare_dir = os.path.join(output, "Compare")       # Folder
+    check_create_dir(out_compare_dir)                       # Check if folder is created
+    folder_compare = str(datetime.date.today()) + "_" + group_name
     path_compare = os.path.join(out_compare_dir, folder_compare)
     check_create_dir(path_compare)
     full_path_compare = os.path.join(path_compare, group_name)
@@ -655,8 +692,7 @@ def main():
         compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
     recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
                                          min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    recalibrated_revised_df.to_csv(
-        compare_snp_matrix_recal, sep="\t", index=False)
+    recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
     recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, path_compare, min_freq_include=0.7,
                                                min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
     recalibrated_revised_INDEL_df.to_csv(
@@ -677,10 +713,171 @@ def main():
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
+def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name):
 
-if __name__ == '__main__':
+    # Counter for new samples
+    new_sample_number = 0
+
+    for r1_file, r2_file in zip(r1, r2):
+        # Extract sample name
+        sample = extract_sample(r1_file, r2_file)
+        # True if samples needs to be analysed
+        if sample in sample_list_F:
+
+            sample_number = str(sample_list_F.index(sample) + 1)
+            sample_total = str(len(sample_list_F))
+
+            out_map_dir = os.path.join(output, "Bam")                                               # Folder
+            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+            # Check if sample has been already analysed
+            # If True, sample does not need to be analysed again
+            if sample in new_samples:
+                new_sample_number = str(int(new_sample_number) + 1)
+                new_sample_total = str(len(new_samples))
+                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
+            else:
+                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+
+            # True if not .rg.markdup.trimmed.sorted.bam exits
+            # (trimming and mapping of alingned reads is already done)
+            if not os.path.isfile(output_markdup_trimmed_file):
+                
+                # INPUT ARGUMENTS
+                ################
+                check_file_exists(r1_file)
+                check_file_exists(r2_file)
+
+                # QUALITY CHECK in RAW with fastqc
+                ######################################################
+                # Check quality of input fastq with fastqc and store info in output/Quality/raw
+                check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
+
+                # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
+                ###################################################
+                # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
+                # by using fastp. Output is in output/Trimmed
+                output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output)
+
+                # QUALITY CHECK in TRIMMED with fastqc
+                ######################################################
+                # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
+                check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
+
+                # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+                #####################################################
+                # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
+                output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output)
+
+                #MARK DUPLICATES WITH PICARDTOOLS ###################
+                #####################################################
+                # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
+                # by a sorted without duplicates bam file.
+                output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
+
+                #TRIM PRIMERS WITH ivar trim ########################
+                #####################################################
+                # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
+                trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
+
+            else:
+                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
+                        " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
+
+            ########################END OF MAPPING AND BAM MANIPULATION##########################
+            #####################################################################################
+
+            #VARIANT CALLING WTIH ivar variants##################
+            #####################################################
+            # Variant calling with ivar. Output is located in output/Variants/ivar_raw
+            out_ivar_variant_file, out_variant_ivar_dir = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
+
+            #VARIANT FILTERING ##################################
+            #####################################################
+            # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
+            out_filtered_ivar_dir = variant_filtering(output, sample, out_ivar_variant_file, logger)
+
+            #CREATE CONSENSUS with ivar consensus##################
+            #######################################################
+            # Create a consensus fasta file from bam file trimmed and without duplicates.
+            # Output is located in output/Consensus/ivar.
+            consensus_create(output, sample, output_markdup_trimmed_file, logger)
+
+            ########################CREATE STATS AND QUALITY FILTERS###############################
+            #######################################################################################
+            #CREATE Bamstats #######################################
+            ########################################################
+            # Compute metrics from trimmed and without duplicates bam file using samtools.
+            # Output is located in output/Stats/Bamstats.
+            bamstats(output, sample, output_markdup_trimmed_file, logger)
+
+            #CREATE CoverageStats ##################################
+            ########################################################
+            out_stats_coverage_dir = coverage_stats(output, sample, output_markdup_trimmed_file, logger)
+
+    # coverage OUTPUT SUMMARY
+    ######################################################
+    logger.info(GREEN + "Creating summary report for coverage result " + END_FORMATTING)
+    # Output is located in output/Stats/Coverage
+    obtain_group_cov_stats(out_stats_coverage_dir, group_name)
+
+    # READS and VARIANTS OUTPUT SUMMARY
+    ######################################################
+    logger.info(GREEN + "Creating overal summary report " + END_FORMATTING)
+    # Output is located in output/Stats
     try:
-        main()
-    except Exception as e:
-        logger.exception(e)
-        raise
+        obtain_overal_stats(output, group_name)
+    except:
+        logger.info(YELLOW + "Overall Stats not computed " + END_FORMATTING)
+
+    #ANNOTATION WITH SNPEFF #############################
+    #####################################################
+    logger.info("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " +
+        group_name + END_FORMATTING + "\n")
+    # Annotates variants using snpEff. Output is located in output/Annotation/snpeff.
+    out_annot_snpeff_dir = snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir)
+
+    # USER DEFINED
+    # Annotate variants using user files. Output is located in output/Annotation/user.
+    annotate_user(args, logger, output, sample, out_variant_ivar_dir)
+
+    # USER AA DEFINED
+    # Annotate variants using user aa files. Output is located in output/Annotation/user_aa.
+    out_annot_user_aa_dir = useraa_annotation(output, logger, sample, out_annot_snpeff_dir)
+
+    #LINAGE WITH PANGOLIN ###############################
+    #####################################################
+    # Annotate consensus fasta files to obtian sample linage using pangolin.
+    # Output is located in Annotation/pangolin.
+    pangolin_annot(output, logger, args)
+
+    # USER AA TO HTML
+    # Convert tsv user_aa annotation to html. Files are created in output/Annotation/user_aa.
+    user_aa_to_html(out_annot_user_aa_dir, group_name)
+
+    # SNP COMPARISON using tsv variant files
+    ######################################################
+    snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir)
+
+# Parse arguments
+args = get_arguments()
+
+# Global variables
+output = os.path.abspath(args.output)               # Output path (argument)
+group_name = output.split("/")[-1]                  # Group name (output folder name)
+reference = os.path.abspath(args.reference)         # Reference path (argument)
+annotation = os.path.abspath(args.annotation)       # Annotation path (argument)
+
+# LOGGING
+# Create log file with date and time
+logger = logging.getLogger()
+create_logFile(group_name, logger)
+
+# Extract name reads and already analysed reads
+r1, r2, sample_list_F, new_samples = obtain_reads(args, logger)
+
+# Run COVIDMA
+covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name)
