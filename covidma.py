@@ -828,11 +828,12 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     for r1_file, r2_file in zip(r1, r2):
 
-        map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
-        #inputs.append([output, args, logger, r1_file, r2_file, sample_list_F, new_samples])
+        #map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
+        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples))
+ 
+    pool.close()
+    pool.join()
 
-    #pool.map(map_sample, inputs)
-    #os.system("sleep 30")
     sample = extract_sample(r1_file, r2_file)
     out_variant_dir = os.path.join(output, "Variants") 
     out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
