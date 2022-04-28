@@ -105,7 +105,10 @@ def check_create_dir(path):
     if os.path.exists(path):
         pass
     else:
-        os.mkdir(path)
+        try:
+            os.mkdir(path)
+        except:
+            pass
 
 
 def execute_subprocess(cmd, isShell=False):

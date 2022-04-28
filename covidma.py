@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Standard library imports
+import multiprocessing
 import os
 import sys
 import re
@@ -209,7 +210,10 @@ def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, logger
 
     # Set name files
     out_dir = os.path.join(output, name_folder)                                 # folder
-    check_create_dir(out_dir)                                                   # check if folder exists
+    try:
+        check_create_dir(out_dir)                                                   # check if folder exists
+    except:
+        pass
     out_name_r1 = r1_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r1 file name
     out_name_r2 = r2_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r2 file name
     out_subdir = os.path.join(out_dir, sub_folder_name)                         # subfolder
@@ -712,111 +716,137 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
-def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name):
+def map_sample(l):
 
+    output = l[0]
+    args = l[1]
+    logger = l[2]
+    r1_file = l[3]
+    r2_file = l[4]
+    sample_list_F = l[5]
+    new_samples = l[6]
+
+    # Extract sample name
+    sample = extract_sample(r1_file, r2_file)
     # Counter for new samples
     new_sample_number = 0
+    # True if samples needs to be analysed
+    if sample in sample_list_F:
+
+        sample_number = str(sample_list_F.index(sample) + 1)
+        sample_total = str(len(sample_list_F))
+
+        out_map_dir = os.path.join(output, "Bam")                                               # Folder
+        out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+        output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+        # Check if sample has been already analysed
+        # If True, sample does not need to be analysed again
+        if sample in new_samples:
+            new_sample_number = str(int(new_sample_number) + 1)
+            new_sample_total = str(len(new_samples))
+            logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
+                        " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
+        else:
+            logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
+                        " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+
+        # True if not .rg.markdup.trimmed.sorted.bam exits
+        # (trimming and mapping of alingned reads is already done)
+        if not os.path.isfile(output_markdup_trimmed_file):
+            
+            # INPUT ARGUMENTS
+            ################
+            check_file_exists(r1_file)
+            check_file_exists(r2_file)
+
+            # QUALITY CHECK in RAW with fastqc
+            ######################################################
+            # Check quality of input fastq with fastqc and store info in output/Quality/raw
+            check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
+
+            # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
+            ###################################################
+            # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
+            # by using fastp. Output is in output/Trimmed
+            output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output)
+
+            # QUALITY CHECK in TRIMMED with fastqc
+            ######################################################
+            # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
+            check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
+
+            # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+            #####################################################
+            # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
+            output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output)
+
+            #MARK DUPLICATES WITH PICARDTOOLS ###################
+            #####################################################
+            # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
+            # by a sorted without duplicates bam file.
+            output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
+
+            #TRIM PRIMERS WITH ivar trim ########################
+            #####################################################
+            # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
+            trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
+
+        else:
+            logger.info(YELLOW + DIM + output_markdup_trimmed_file +
+                    " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
+
+        ########################END OF MAPPING AND BAM MANIPULATION##########################
+        #####################################################################################
+
+        #VARIANT CALLING WTIH ivar variants##################
+        #####################################################
+        # Variant calling with ivar. Output is located in output/Variants/ivar_raw
+        out_ivar_variant_file, out_variant_ivar_dir = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
+
+        #VARIANT FILTERING ##################################
+        #####################################################
+        # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
+        out_filtered_ivar_dir = variant_filtering(output, sample, out_ivar_variant_file, logger)
+
+        #CREATE CONSENSUS with ivar consensus##################
+        #######################################################
+        # Create a consensus fasta file from bam file trimmed and without duplicates.
+        # Output is located in output/Consensus/ivar.
+        consensus_create(output, sample, output_markdup_trimmed_file, logger)
+
+        ########################CREATE STATS AND QUALITY FILTERS###############################
+        #######################################################################################
+        #CREATE Bamstats #######################################
+        ########################################################
+        # Compute metrics from trimmed and without duplicates bam file using samtools.
+        # Output is located in output/Stats/Bamstats.
+        bamstats(output, sample, output_markdup_trimmed_file, logger)
+
+        #CREATE CoverageStats ##################################
+        ########################################################
+        out_stats_coverage_dir = coverage_stats(output, sample, output_markdup_trimmed_file, logger)
+
+def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name):
+
+    nproc = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=nproc)
+    
+    inputs = []
 
     for r1_file, r2_file in zip(r1, r2):
-        # Extract sample name
-        sample = extract_sample(r1_file, r2_file)
-        # True if samples needs to be analysed
-        if sample in sample_list_F:
 
-            sample_number = str(sample_list_F.index(sample) + 1)
-            sample_total = str(len(sample_list_F))
+        #map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
+        inputs.append([output, args, logger, r1_file, r2_file, sample_list_F, new_samples])
 
-            out_map_dir = os.path.join(output, "Bam")                                               # Folder
-            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
-            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
-
-            # Check if sample has been already analysed
-            # If True, sample does not need to be analysed again
-            if sample in new_samples:
-                new_sample_number = str(int(new_sample_number) + 1)
-                new_sample_total = str(len(new_samples))
-                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
-            else:
-                logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
-
-            # True if not .rg.markdup.trimmed.sorted.bam exits
-            # (trimming and mapping of alingned reads is already done)
-            if not os.path.isfile(output_markdup_trimmed_file):
-                
-                # INPUT ARGUMENTS
-                ################
-                check_file_exists(r1_file)
-                check_file_exists(r2_file)
-
-                # QUALITY CHECK in RAW with fastqc
-                ######################################################
-                # Check quality of input fastq with fastqc and store info in output/Quality/raw
-                check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
-
-                # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
-                ###################################################
-                # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
-                # by using fastp. Output is in output/Trimmed
-                output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output)
-
-                # QUALITY CHECK in TRIMMED with fastqc
-                ######################################################
-                # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
-                check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
-
-                # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-                #####################################################
-                # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
-                output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output)
-
-                #MARK DUPLICATES WITH PICARDTOOLS ###################
-                #####################################################
-                # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
-                # by a sorted without duplicates bam file.
-                output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
-
-                #TRIM PRIMERS WITH ivar trim ########################
-                #####################################################
-                # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
-                trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
-
-            else:
-                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
-                        " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
-
-            ########################END OF MAPPING AND BAM MANIPULATION##########################
-            #####################################################################################
-
-            #VARIANT CALLING WTIH ivar variants##################
-            #####################################################
-            # Variant calling with ivar. Output is located in output/Variants/ivar_raw
-            out_ivar_variant_file, out_variant_ivar_dir = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
-
-            #VARIANT FILTERING ##################################
-            #####################################################
-            # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
-            out_filtered_ivar_dir = variant_filtering(output, sample, out_ivar_variant_file, logger)
-
-            #CREATE CONSENSUS with ivar consensus##################
-            #######################################################
-            # Create a consensus fasta file from bam file trimmed and without duplicates.
-            # Output is located in output/Consensus/ivar.
-            consensus_create(output, sample, output_markdup_trimmed_file, logger)
-
-            ########################CREATE STATS AND QUALITY FILTERS###############################
-            #######################################################################################
-            #CREATE Bamstats #######################################
-            ########################################################
-            # Compute metrics from trimmed and without duplicates bam file using samtools.
-            # Output is located in output/Stats/Bamstats.
-            bamstats(output, sample, output_markdup_trimmed_file, logger)
-
-            #CREATE CoverageStats ##################################
-            ########################################################
-            out_stats_coverage_dir = coverage_stats(output, sample, output_markdup_trimmed_file, logger)
-
+    pool.map(map_sample, inputs)
+    os.system("sleep 30")
+    sample = extract_sample(r1_file, r2_file)
+    out_variant_dir = os.path.join(output, "Variants") 
+    out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
+    out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")
+    out_stats_dir = os.path.join(output, "Stats")  
+    out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
     # coverage OUTPUT SUMMARY
     ######################################################
     logger.info(GREEN + "Creating summary report for coverage result " + END_FORMATTING)
