@@ -716,15 +716,7 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
-def map_sample(l):
-
-    output = l[0]
-    args = l[1]
-    logger = l[2]
-    r1_file = l[3]
-    r2_file = l[4]
-    sample_list_F = l[5]
-    new_samples = l[6]
+def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples):
 
     # Extract sample name
     sample = extract_sample(r1_file, r2_file)
@@ -836,11 +828,11 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     for r1_file, r2_file in zip(r1, r2):
 
-        #map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
-        inputs.append([output, args, logger, r1_file, r2_file, sample_list_F, new_samples])
+        map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
+        #inputs.append([output, args, logger, r1_file, r2_file, sample_list_F, new_samples])
 
-    pool.map(map_sample, inputs)
-    os.system("sleep 30")
+    #pool.map(map_sample, inputs)
+    #os.system("sleep 30")
     sample = extract_sample(r1_file, r2_file)
     out_variant_dir = os.path.join(output, "Variants") 
     out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
