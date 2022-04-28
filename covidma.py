@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Standard library imports
+from distutils.command import check
 import multiprocessing
 import os
 import sys
@@ -202,6 +203,79 @@ def obtain_reads(args, logger):
     # Returns paired-reads absolute path and samples ID
     return (r1, r2, sample_list_F, new_samples)
 
+def set_folder_structure(output):
+
+    # output/Quality
+    out_qc_dir = os.path.join(output, "Quality")
+    check_create_dir(out_qc_dir)
+    # output/Quality/raw
+    out_qc_pre_dir = os.path.join(out_qc_dir, "raw")  # subfolder
+    check_create_dir(out_qc_pre_dir)
+    # output/Quality/processed
+    out_qc_post_dir = os.path.join(out_qc_dir, "processed")  # subfolder
+    check_create_dir(out_qc_post_dir)
+
+    # output/Trimmed
+    out_trim_dir = os.path.join(output, "Trimmed")
+    check_create_dir(out_trim_dir)
+
+    # output/Bam
+    out_map_dir = os.path.join(output, "Bam")
+    check_create_dir(out_map_dir)
+
+    # output/Variants
+    out_variant_dir = os.path.join(output, "Variants")
+    check_create_dir(out_variant_dir)
+    # output/Variants/ivar_raw
+    out_variant_ivar_dir = os.path.join(
+        out_variant_dir, "ivar_raw")  # subfolder
+    check_create_dir(out_variant_ivar_dir)
+    # output/Variants/ivar_filtered
+    out_filtered_ivar_dir = os.path.join(
+        out_variant_dir, "ivar_filtered")  # subfolder
+    check_create_dir(out_filtered_ivar_dir)
+
+    # output/Consensus
+    out_consensus_dir = os.path.join(output, "Consensus")
+    check_create_dir(out_consensus_dir)
+    # output/Consensus/ivar
+    out_consensus_ivar_dir = os.path.join(
+        out_consensus_dir, "ivar")  # subfolder
+    check_create_dir(out_consensus_ivar_dir)
+
+    # output/Stats
+    out_stats_dir = os.path.join(output, "Stats")
+    check_create_dir(out_stats_dir)
+    # output/Stats/Bamstats
+    out_stats_bamstats_dir = os.path.join(
+        out_stats_dir, "Bamstats")  # subfolder
+    check_create_dir(out_stats_bamstats_dir)
+    # output/Stats/Coverage
+    out_stats_coverage_dir = os.path.join(
+        out_stats_dir, "Coverage")  # subfolder
+    check_create_dir(out_stats_coverage_dir)
+
+    # output/Compare
+    out_compare_dir = os.path.join(output, "Compare")
+    check_create_dir(out_compare_dir)
+
+    # output/Annotation
+    out_annot_dir = os.path.join(output, "Annotation")
+    check_create_dir(out_annot_dir)
+    # output/Annotation/snpeff
+    out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")  # subfolder
+    check_create_dir(out_annot_snpeff_dir)
+    # output/Annotation/pangolin
+    out_annot_pangolin_dir = os.path.join(
+        out_annot_dir, "pangolin")  # subfolder
+    check_create_dir(out_annot_pangolin_dir)
+    # output/Annotation/user
+    out_annot_user_dir = os.path.join(out_annot_dir, "user")  # subfolder
+    check_create_dir(out_annot_user_dir)
+    # output/Annotation/user_aa
+    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+    check_create_dir(out_annot_user_aa_dir)
+
 def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, logger, args, sample):
     """
     Function that check reads quality with fastqc
@@ -210,10 +284,6 @@ def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, logger
 
     # Set name files
     out_dir = os.path.join(output, name_folder)                                 # folder
-    try:
-        check_create_dir(out_dir)                                                   # check if folder exists
-    except:
-        pass
     out_name_r1 = r1_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r1 file name
     out_name_r2 = r2_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r2 file name
     out_subdir = os.path.join(out_dir, sub_folder_name)                         # subfolder
@@ -346,8 +416,7 @@ def ivar_variant_calling(logger, output_markdup_trimmed_file, sample):
     Output is located in Variants/ivar_raw.
     """
 
-    out_variant_dir = os.path.join(output, "Variants")                                      # Folder
-    check_create_dir(out_variant_dir)                                                       # Check if folder is created
+    out_variant_dir = os.path.join(output, "Variants")                                      # Folder                                                    # Check if folder is created
     out_ivar_variant_name = sample + ".tsv"                                                 # Variant calling outup file name
     out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")                        # subfolder
     out_ivar_variant_file = os.path.join(out_variant_ivar_dir, out_ivar_variant_name)
@@ -364,7 +433,7 @@ def ivar_variant_calling(logger, output_markdup_trimmed_file, sample):
                         annotation, min_quality=15, min_frequency_threshold=0.01, min_depth=1)
     
     # Return vcf file name
-    return (out_ivar_variant_file, out_variant_ivar_dir)
+    return (out_ivar_variant_file)
 
 def variant_filtering(output, sample, out_ivar_variant_file, logger):
     """
@@ -379,10 +448,8 @@ def variant_filtering(output, sample, out_ivar_variant_file, logger):
     """
 
     out_variant_dir = os.path.join(output, "Variants")                                      # Folder
-    check_create_dir(out_variant_dir)                                                       # Check if folder is created
     out_ivar_variant_name = sample + ".tsv"                                                 # vcf file name
     out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered")                  # subfolder
-    check_create_dir(out_filtered_ivar_dir)                                                 # Check if folder exits
     out_ivar_filtered_file = os.path.join(out_filtered_ivar_dir, out_ivar_variant_name)     # Absolute path file name
 
     # Check if variant filtering has already been performed
@@ -396,9 +463,6 @@ def variant_filtering(output, sample, out_ivar_variant_file, logger):
         # Filter variants checking in pandas DataFrame 
         filter_tsv_variants(out_ivar_variant_file, out_filtered_ivar_dir, min_frequency=0.7,
                             min_total_depth=10, min_alt_dp=4, is_pass=True, only_snp=False)
-    
-    # Retrun ivar_filtered subfolder
-    return (out_filtered_ivar_dir)
 
 def consensus_create(output, sample, output_markdup_trimmed_file, logger):
     """
@@ -408,10 +472,8 @@ def consensus_create(output, sample, output_markdup_trimmed_file, logger):
     Output consensus file is in Consensus/ivar.
     """
 
-    out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
-    check_create_dir(out_consensus_dir)                                                         # Check if folder exists
+    out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder                                                   # Check if folder exists
     out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")                            # subfolder
-    check_create_dir(out_consensus_ivar_dir)                                                    # Check if subfolder exists
     out_ivar_consensus_name = sample + ".fa"                                                    # consensus fasta name file
     out_ivar_consensus_file = os.path.join(out_consensus_ivar_dir, out_ivar_consensus_name)     # Abosolute path consensus file
 
@@ -440,9 +502,7 @@ def bamstats(output, sample, output_markdup_trimmed_file, logger):
     """
 
     out_stats_dir = os.path.join(output, "Stats")                                       # Folder
-    check_create_dir(out_stats_dir)                                                     # Check if folder exists
     out_stats_bamstats_dir = os.path.join(out_stats_dir, "Bamstats")                    # subfolder
-    check_create_dir(out_stats_bamstats_dir)                                            # Check if subfolder exists
     out_bamstats_name = sample + ".bamstats"                                            # Output filename
     out_bamstats_file = os.path.join(out_stats_bamstats_dir, out_bamstats_name)         # absolute path to filename
 
@@ -467,9 +527,7 @@ def coverage_stats(output, sample, output_markdup_trimmed_file, logger):
     """
 
     out_stats_dir = os.path.join(output, "Stats")                                   # Folder
-    check_create_dir(out_stats_dir)                                                 # Check if folder exists
     out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")                # subfolder
-    check_create_dir(out_stats_coverage_dir)                                        # Check if sulbfolder exists
     out_coverage_name = sample + ".cov"                                             # Name output file
     out_coverage_file = os.path.join(out_stats_coverage_dir, out_coverage_name)     # Absolute output path name
 
@@ -484,9 +542,6 @@ def coverage_stats(output, sample, output_markdup_trimmed_file, logger):
         # Compute coverage metrics using samtools
         create_coverage(output_markdup_trimmed_file,
                         out_stats_coverage_dir, sample)
-    
-    # Return absolute path Stats directory
-    return (out_stats_coverage_dir)
 
 def snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir):
     """
@@ -496,9 +551,7 @@ def snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir):
     """
 
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
-    check_create_dir(out_annot_dir)                                 # Check if folder exits
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
-    check_create_dir(out_annot_snpeff_dir)                          # Check if subfolder exists
     
     if args.snpeff_database:
         # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -539,9 +592,7 @@ def annotate_user(args, logger, output, sample, out_variant_ivar_dir):
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
     else:
         out_annot_dir = os.path.join(output, "Annotation")          # Folder
-        check_create_dir(out_annot_dir)                             # Check if folder exits
         out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
-        check_create_dir(out_annot_user_dir)                        # Check if subfolder exists
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_variant_ivar_dir):
             if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -569,9 +620,7 @@ def useraa_annotation(output, logger, sample, out_annot_snpeff_dir):
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
         out_annot_dir = os.path.join(output, "Annotation")              # Folder
-        check_create_dir(out_annot_dir)                                 # Check if folder exits
         out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
-        check_create_dir(out_annot_user_aa_dir)                         # Check if subfolder exists
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
@@ -605,14 +654,10 @@ def pangolin_annot(output, logger, args):
         futures_pangolin = []
 
         out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
-        check_create_dir(out_consensus_dir)                                                         # Check if folder exists
         out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")                            # subfolder
-        check_create_dir(out_consensus_ivar_dir)                                                    # Check if subfolder exists
 
         out_annot_dir = os.path.join(output, "Annotation")                  # Folder
-        check_create_dir(out_annot_dir)                                     # Check if folder exists
         out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
-        check_create_dir(out_annot_pangolin_dir)                            # Check if subfolder exists
 
         for root, _, files in os.walk(out_consensus_ivar_dir):
             if root == out_consensus_ivar_dir:
@@ -670,11 +715,9 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + BLUE + BOLD + "STARTING COMPARISON IN GROUP: " +
                 group_name + END_FORMATTING + "\n")
     out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
-    check_create_dir(out_consensus_dir)                                                         # Check if folder exists
     
 
     out_compare_dir = os.path.join(output, "Compare")       # Folder
-    check_create_dir(out_compare_dir)                       # Check if folder is created
     folder_compare = str(datetime.date.today()) + "_" + group_name
     path_compare = os.path.join(out_compare_dir, folder_compare)
     check_create_dir(path_compare)
@@ -717,6 +760,9 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
 def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples):
+    """
+    Function that maps reads to reference genome and performs variant calling.
+    """
 
     # Extract sample name
     sample = extract_sample(r1_file, r2_file)
@@ -794,12 +840,12 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
         #VARIANT CALLING WTIH ivar variants##################
         #####################################################
         # Variant calling with ivar. Output is located in output/Variants/ivar_raw
-        out_ivar_variant_file, out_variant_ivar_dir = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
+        out_ivar_variant_file = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
 
         #VARIANT FILTERING ##################################
         #####################################################
         # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
-        out_filtered_ivar_dir = variant_filtering(output, sample, out_ivar_variant_file, logger)
+        variant_filtering(output, sample, out_ivar_variant_file, logger)
 
         #CREATE CONSENSUS with ivar consensus##################
         #######################################################
@@ -817,29 +863,29 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
 
         #CREATE CoverageStats ##################################
         ########################################################
-        out_stats_coverage_dir = coverage_stats(output, sample, output_markdup_trimmed_file, logger)
+        coverage_stats(output, sample, output_markdup_trimmed_file, logger)
 
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name):
 
+    # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
-    
-    inputs = []
 
+    # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-
-        #map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples)
         pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples))
  
     pool.close()
-    pool.join()
+    pool.join() # wait until all process end
 
+    # Necessary variables
     sample = extract_sample(r1_file, r2_file)
     out_variant_dir = os.path.join(output, "Variants") 
     out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
     out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")
     out_stats_dir = os.path.join(output, "Stats")  
     out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
+
     # coverage OUTPUT SUMMARY
     ######################################################
     logger.info(GREEN + "Creating summary report for coverage result " + END_FORMATTING)
@@ -897,6 +943,9 @@ annotation = os.path.abspath(args.annotation)       # Annotation path (argument)
 # Create log file with date and time
 logger = logging.getLogger()
 create_logFile(group_name, logger)
+
+# Set output folder structre
+set_folder_structure(output)
 
 # Extract name reads and already analysed reads
 r1, r2, sample_list_F, new_samples = obtain_reads(args, logger)
