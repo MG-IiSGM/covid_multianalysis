@@ -835,7 +835,7 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
+    nproc = multiprocessing.cpu_count() - 4
     pool = multiprocessing.Pool(processes=nproc)
 
     # Loop for paralellization
@@ -923,7 +923,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     else:
         # Variables for parallelization
         nproc = multiprocessing.cpu_count()
-        pool = multiprocessing.Pool(processes=nproc)
+        pool = multiprocessing.Pool(processes=nproc, )
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
