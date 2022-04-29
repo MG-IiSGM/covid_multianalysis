@@ -835,7 +835,7 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Variables for parallelization
-    nproc = multiprocessing.cpu_count() - 4
+    nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
 
     # Loop for paralellization
