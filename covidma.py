@@ -844,8 +844,6 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     for r1_file, r2_file in zip(r1, r2):
         counter2 += 1
         if counter2 == len(r1):
-            pool.close()
-            pool.join()
             break
         elif counter < nproc:
             pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
@@ -857,6 +855,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
             nproc = multiprocessing.cpu_count()
             pool = multiprocessing.Pool(processes=nproc)
             counter = 0
+    pool.close()
+    pool.join()
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
