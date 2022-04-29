@@ -837,7 +837,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
-    counter1 = 0
+    counter = 0
     counter2 = -1
 
     # Loop for paralellization
