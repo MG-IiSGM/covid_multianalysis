@@ -879,11 +879,10 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
 
-     # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(processes=nproc)
-    
     if args.snpeff_database:
+        # Variables for parallelization
+        nproc = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=nproc)
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_filtered_ivar_dir):
             if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -896,10 +895,15 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # USER DEFINED ANNOTATION ###########################
     #####################################################
     # Annotate variants using user files. Output is located in output/Annotation/user.
+
+    
     if not args.annot_bed and not args.annot_vcf:
         logger.info(
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
     else:
+        # Variables for parallelization
+        nproc = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=nproc)
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_variant_ivar_dir):
             if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
@@ -917,7 +921,9 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         logger.info(
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
-        
+        # Variables for parallelization
+        nproc = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=nproc)
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
