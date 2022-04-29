@@ -54,7 +54,7 @@ def bowtie2_mapping(args):
 """
 
 
-def bwa_mapping(r1, r2, reference, sample, output_dir, threads=8):
+def bwa_mapping(r1, r2, reference, sample, output_dir, threads=1):
     """
     #Store output in a file when it is outputted in stdout
     https://stackoverflow.com/questions/4965159/how-to-redirect-output-with-subprocess-in-python

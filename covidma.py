@@ -106,7 +106,7 @@ def get_arguments():
         'Parameters', 'parameters for diferent stringent conditions')
 
     params_group.add_argument('-T', '--threads', type=str, dest="threads",
-                                required=False, default=16, help='Threads to use')
+                                required=False, default=1, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest="memory",
                                 required=False, default=32, help='Max memory to use')
 
