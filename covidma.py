@@ -136,7 +136,7 @@ def get_arguments():
 
     return arguments
 
-def create_logFile(group_name, logger):
+def create_logFile(group_name, logger, output, args):
     """
     Function that creates a log file to store all steps 
     of the pipeline.
@@ -301,7 +301,7 @@ def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, logger
         # Check quality with fastqc
         fastqc_quality(r1_file, r2_file, out_subdir, args.threads)
 
-def trim_read(r1_file, r2_file, logger, sample, output):
+def trim_read(r1_file, r2_file, logger, sample, output, args):
     """
     Function that trim reads considering some restrictions
     using fastp
@@ -330,7 +330,7 @@ def trim_read(r1_file, r2_file, logger, sample, output):
     # Return path of trimmed files
     return (output_trimming_file_r1, output_trimming_file_r2)
 
-def mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output):
+def mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args):
     """
     Function that maps reads in reference genome using BWA
     Then, transform sam file to sorted bam file.
@@ -409,7 +409,7 @@ def trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, 
         ivar_trim(output_markdup_file, args.primers, sample,
                     min_length=30, min_quality=20, sliding_window_width=4)
 
-def ivar_variant_calling(logger, output_markdup_trimmed_file, sample):
+def ivar_variant_calling(logger, output, output_markdup_trimmed_file, sample, reference, annotation):
     """
     Function that performs variant calling using ivar
 
@@ -493,7 +493,7 @@ def consensus_create(output, sample, output_markdup_trimmed_file, logger):
         # As header of fasta file is the sample name
         replace_consensus_header(out_ivar_consensus_file)
 
-def bamstats(output, sample, output_markdup_trimmed_file, logger):
+def bamstats(output, sample, output_markdup_trimmed_file, logger, args):
     """
     Function that compute some metrics from bam file
     trimmed and without duplicates, using samtools.
@@ -543,7 +543,7 @@ def coverage_stats(output, sample, output_markdup_trimmed_file, logger):
         create_coverage(output_markdup_trimmed_file,
                         out_stats_coverage_dir, sample)
 
-def snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir):
+def snpeff_annotation(output, name, root, sample, logger, args):
     """
     Function that annotates variants using snpEff.
 
@@ -552,95 +552,62 @@ def snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir):
 
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
-    
-    if args.snpeff_database:
-        # CHANGE FOR RAW/FILTERED ANNOTATION
-        for root, _, files in os.walk(out_filtered_ivar_dir):
-            if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
-                for name in files:
-                    if name.endswith('.tsv'):
-                        sample = name.split('.')[0]
-                        filename = os.path.join(root, name)
-                        out_annot_file = os.path.join(out_annot_snpeff_dir, sample + ".annot")  # Absolute path file name
+    sample = name.split('.')[0]                                     # sample
+    filename = os.path.join(root, name)                             # sample name
+    out_annot_file = os.path.join(out_annot_snpeff_dir, sample + ".annot")  # Absolute path file name
 
-                        # Check if annotation has already been performed
-                        # If True, annotation is skipped
-                        if os.path.isfile(out_annot_file):
-                            logger.info(YELLOW + DIM + out_annot_file +
-                                        " EXIST\nOmmiting snpEff Annotation for sample " + sample + END_FORMATTING)
-                        else:
-                            logger.info(
-                                GREEN + "Annotating sample with snpEff: " + sample + END_FORMATTING)
-                            output_vcf = os.path.join(
-                                out_annot_snpeff_dir, sample + '.vcf')
-                            # Annotates variants using snpEff
-                            annotate_snpeff(filename, output_vcf, out_annot_file, database=args.snpeff_database)
-    
-    # Return Annotation/snpeff folder
-    return (out_annot_snpeff_dir)
+    # Check if annotation has already been performed
+    # If True, annotation is skipped
+    if os.path.isfile(out_annot_file):
+        logger.info(YELLOW + DIM + out_annot_file +
+                    " EXIST\nOmmiting snpEff Annotation for sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Annotating sample with snpEff: " + sample + END_FORMATTING)
+        output_vcf = os.path.join(
+            out_annot_snpeff_dir, sample + '.vcf')
+        # Annotates variants using snpEff
+        annotate_snpeff(filename, output_vcf, out_annot_file, database=args.snpeff_database)
 
-def annotate_user(args, logger, output, sample, out_variant_ivar_dir):
+def annotate_user(args, name, root, logger, output, sample):
     """
     Function that annotate variants from user files.
 
     Output is located in Annotation/user.
     """
 
-    # USER DEFINED
-    if not args.annot_bed and not args.annot_vcf:
-        logger.info(
-            YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
-    else:
-        out_annot_dir = os.path.join(output, "Annotation")          # Folder
-        out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
-        # CHANGE FOR RAW/FILTERED ANNOTATION
-        for root, _, files in os.walk(out_variant_ivar_dir):
-            if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
-                for name in files:
-                    if name.endswith('.tsv'):
-                        sample = name.split('.')[0]
-                        logger.info(
-                            'User bed/vcf annotation in sample {}'.format(sample))
-                        filename = os.path.join(root, name)
-                        out_annot_file = os.path.join(
-                            out_annot_user_dir, sample + ".tsv")
-                        # Perform user annotation
-                        user_annotation(filename, out_annot_file, vcf_files=args.annot_vcf, bed_files=args.annot_bed)
+    out_annot_dir = os.path.join(output, "Annotation")          # folder
+    out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
+    sample = name.split('.')[0]
+    logger.info(
+        'User bed/vcf annotation in sample {}'.format(sample))
+    filename = os.path.join(root, name)
+    out_annot_file = os.path.join(
+        out_annot_user_dir, sample + ".tsv")
+    # Perform user annotation
+    user_annotation(filename, out_annot_file, vcf_files=args.annot_vcf, bed_files=args.annot_bed)
 
-def useraa_annotation(output, logger, sample, out_annot_snpeff_dir):
+def useraa_annotation(name, logger, sample, output, root, args):
     """
     Function that annotate variants from user aa files.
 
     Output is located in Annotation/user_aa.
     """
-
-    # USER AA DEFINED
-    if not args.annot_aa:
-        logger.info(
-            YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
+    out_annot_dir = os.path.join(output, "Annotation")              # Folder
+    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+    sample = name.split('.')[0]
+    logger.info(
+        'User aa annotation in sample {}'.format(sample))
+    filename = os.path.join(root, name)
+    out_annot_aa_file = os.path.join(
+        out_annot_user_aa_dir, sample + ".tsv")
+    # Perform user annotation
+    if os.path.isfile(out_annot_aa_file):
+        user_annotation_aa(
+            out_annot_aa_file, out_annot_aa_file, aa_files=args.annot_aa)
     else:
-        out_annot_dir = os.path.join(output, "Annotation")              # Folder
-        out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
-        for root, _, files in os.walk(out_annot_snpeff_dir):
-            if root == out_annot_snpeff_dir:
-                for name in files:
-                    if name.endswith('.annot'):
-                        sample = name.split('.')[0]
-                        logger.info(
-                            'User aa annotation in sample {}'.format(sample))
-                        filename = os.path.join(root, name)
-                        out_annot_aa_file = os.path.join(
-                            out_annot_user_aa_dir, sample + ".tsv")
-                        # Perform user annotation
-                        if os.path.isfile(out_annot_aa_file):
-                            user_annotation_aa(
-                                out_annot_aa_file, out_annot_aa_file, aa_files=args.annot_aa)
-                        else:
-                            user_annotation_aa(
-                                filename, out_annot_aa_file, aa_files=args.annot_aa)
-    
-    # Return Annotation/user_aa absolute path
-    return (out_annot_user_aa_dir)
+        user_annotation_aa(
+            filename, out_annot_aa_file, aa_files=args.annot_aa)
 
 def pangolin_annot(output, logger, args):
     """
@@ -759,7 +726,7 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
-def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples):
+def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference):
     """
     Function that maps reads to reference genome and performs variant calling.
     """
@@ -807,7 +774,7 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
             ###################################################
             # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
             # by using fastp. Output is in output/Trimmed
-            output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output)
+            output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output, args)
 
             # QUALITY CHECK in TRIMMED with fastqc
             ######################################################
@@ -817,7 +784,7 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
             # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
             #####################################################
             # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
-            output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output)
+            output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args)
 
             #MARK DUPLICATES WITH PICARDTOOLS ###################
             #####################################################
@@ -840,7 +807,7 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
         #VARIANT CALLING WTIH ivar variants##################
         #####################################################
         # Variant calling with ivar. Output is located in output/Variants/ivar_raw
-        out_ivar_variant_file = ivar_variant_calling(logger, output_markdup_trimmed_file, sample)
+        out_ivar_variant_file = ivar_variant_calling(logger, output, output_markdup_trimmed_file, sample, reference, annotation)
 
         #VARIANT FILTERING ##################################
         #####################################################
@@ -859,13 +826,13 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
         ########################################################
         # Compute metrics from trimmed and without duplicates bam file using samtools.
         # Output is located in output/Stats/Bamstats.
-        bamstats(output, sample, output_markdup_trimmed_file, logger)
+        bamstats(output, sample, output_markdup_trimmed_file, logger, args)
 
         #CREATE CoverageStats ##################################
         ########################################################
         coverage_stats(output, sample, output_markdup_trimmed_file, logger)
 
-def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name):
+def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
@@ -873,7 +840,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples))
+        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
  
     pool.close()
     pool.join() # wait until all process end
@@ -885,6 +852,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")
     out_stats_dir = os.path.join(output, "Stats")  
     out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
+    out_annot_dir = os.path.join(output, "Annotation")              # Folder
+    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
 
     # coverage OUTPUT SUMMARY
     ######################################################
@@ -905,16 +874,53 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     #####################################################
     logger.info("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " +
         group_name + END_FORMATTING + "\n")
+    
     # Annotates variants using snpEff. Output is located in output/Annotation/snpeff.
-    out_annot_snpeff_dir = snpeff_annotation(output, sample, logger, args, out_filtered_ivar_dir)
+    out_annot_dir = os.path.join(output, "Annotation")              # Folder
+    out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
 
-    # USER DEFINED
+    if args.snpeff_database:
+        # CHANGE FOR RAW/FILTERED ANNOTATION
+        for root, _, files in os.walk(out_filtered_ivar_dir):
+            if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
+                for name in files:
+                    if name.endswith('.tsv'):
+                        pool.apply_async(snpeff_annotation, args=(output, name, root, sample, logger, args))
+        pool.close()
+        pool.join() # wait until all process end
+
+    # USER DEFINED ANNOTATION ###########################
+    #####################################################
     # Annotate variants using user files. Output is located in output/Annotation/user.
-    annotate_user(args, logger, output, sample, out_variant_ivar_dir)
+    if not args.annot_bed and not args.annot_vcf:
+        logger.info(
+            YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
+    else:
+        # CHANGE FOR RAW/FILTERED ANNOTATION
+        for root, _, files in os.walk(out_variant_ivar_dir):
+            if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
+                for name in files:
+                    if name.endswith('.tsv'):
+                        pool.apply_async(annotate_user, args=(args, name, root, logger, output, sample))
+        pool.close()
+        pool.join() # wait until all process end
 
-    # USER AA DEFINED
+    # USER AA DEFINED ANNOTATION ########################
+    #####################################################
     # Annotate variants using user aa files. Output is located in output/Annotation/user_aa.
-    out_annot_user_aa_dir = useraa_annotation(output, logger, sample, out_annot_snpeff_dir)
+    # USER AA DEFINED
+    if not args.annot_aa:
+        logger.info(
+            YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
+    else:
+        
+        for root, _, files in os.walk(out_annot_snpeff_dir):
+            if root == out_annot_snpeff_dir:
+                for name in files:
+                    if name.endswith('.annot'):
+                        pool.apply_async(useraa_annotation, args=(name, logger, sample, output, root, args))
+        pool.close()
+        pool.join() # wait until all process end
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
@@ -942,7 +948,7 @@ annotation = os.path.abspath(args.annotation)       # Annotation path (argument)
 # LOGGING
 # Create log file with date and time
 logger = logging.getLogger()
-create_logFile(group_name, logger)
+create_logFile(group_name, logger, output, args)
 
 # Set output folder structre
 set_folder_structure(output)
@@ -951,4 +957,4 @@ set_folder_structure(output)
 r1, r2, sample_list_F, new_samples = obtain_reads(args, logger)
 
 # Run COVIDMA
-covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name)
+covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation)
