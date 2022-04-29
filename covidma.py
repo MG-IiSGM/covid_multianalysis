@@ -837,13 +837,26 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
+    counter1 = 0
+    counter2 = -1
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
- 
-    pool.close()
-    pool.join() # wait until all process end
+        counter2 += 1
+        if counter2 == len(r1):
+            pool.close()
+            pool.join()
+            break
+        elif counter < nproc:
+            pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+            counter += 1
+        else:
+            pool.close()
+            pool.join() # wait until all process end
+            # New process
+            nproc = multiprocessing.cpu_count()
+            pool = multiprocessing.Pool(processes=nproc)
+            counter = 0
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
