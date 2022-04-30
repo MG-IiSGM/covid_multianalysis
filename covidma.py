@@ -10,7 +10,6 @@ import sys
 import re
 import logging
 import concurrent.futures
-from slurm import SimpleProcess
 
 # Third party imports
 import argparse
@@ -839,27 +838,13 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
 
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
-    # pool = multiprocessing.Pool(processes=nproc)
-    # mapped = []
-    # Loop for paralellization
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
-    c = 0
+    pool = multiprocessing.Pool(processes=nproc)
+    
     for r1_file, r2_file in zip(r1, r2):
-        p = SimpleProcess()
-        p.start(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        print(p)
-        c += 1
-        if c == 10:
-            p.join()
-            c = 0
-            # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
-            # concurrent.futures.as_completed(map)
-            #mapped.append(map)
-            #pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        # for map in concurrent.futures.as_completed(mapped):
-        #     pass
-    # pool.close()
-    # pool.join()
+        print(r1_file, r2_file)
+        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+    pool.close()
+    pool.join() # Wait until process end
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
