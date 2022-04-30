@@ -842,7 +842,9 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
+        print("python map_sample.py %s %s %s %s %s %s %s %s" %(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         command.append("python map_sample.py %s %s %s %s %s %s %s %s" %(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        print()
         # counter2 += 1
         # if counter2 == len(r1):
         #     break
