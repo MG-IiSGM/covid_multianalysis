@@ -385,11 +385,11 @@ def map_sample(output, primers, r1_file, r2_file, reference, annotation):
     coverage_stats(output, sample, output_markdup_trimmed_file)
 
 
-output = sys.argv[0]
-primers = sys.argv[1]
-r1_file = sys.argv[2]
-r2_file = sys.argv[3]
-reference = sys.argv[4]
-annotation = sys.argv[5]
+output = sys.argv[1]
+primers = sys.argv[2]
+r1_file = sys.argv[3]
+r2_file = sys.argv[4]
+reference = sys.argv[5]
+annotation = sys.argv[6]
 
 map_sample(output, primers, r1_file, r2_file, reference, annotation)
