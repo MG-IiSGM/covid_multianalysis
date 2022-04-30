@@ -843,10 +843,11 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
         for r1_file, r2_file in zip(r1, r2):
             map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
-            mapped.append(map)
+            concurrent.futures.as_completed(map)
+            #mapped.append(map)
             #pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        for map in concurrent.futures.as_completed(mapped):
-            pass
+        # for map in concurrent.futures.as_completed(mapped):
+        #     pass
     # pool.close()
     # pool.join()
 
