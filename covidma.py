@@ -843,12 +843,15 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # mapped = []
     # Loop for paralellization
     # with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
-    p = SimpleProcess()
+    c = 0
     for r1_file, r2_file in zip(r1, r2):
-        p = SimpleProcess(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        p.start()
+        p = SimpleProcess()
+        p.start(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         print(p)
-        p.join()
+        c += 1
+        if c == 10:
+            p.join()
+            c = 0
             # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
             # concurrent.futures.as_completed(map)
             #mapped.append(map)
