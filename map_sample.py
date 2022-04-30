@@ -294,120 +294,102 @@ def coverage_stats(output, sample, output_markdup_trimmed_file):
         create_coverage(output_markdup_trimmed_file,
                         out_stats_coverage_dir, sample)
 
-def map_sample(output, primers, r1_file, r2_file, sample_list_F, new_samples, reference, annotation):
+def map_sample(output, primers, r1_file, r2_file, reference, annotation):
     """
     Function that maps reads to reference genome and performs variant calling.
     """
-
-    # Extract sample name
     sample = extract_sample(r1_file, r2_file)
-    # Counter for new samples
-    new_sample_number = 0
-    # True if samples needs to be analysed
-    if sample in sample_list_F:
 
-        sample_number = str(sample_list_F.index(sample) + 1)
-        sample_total = str(len(sample_list_F))
+    out_map_dir = os.path.join(output, "Bam")                                               # Folder
+    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+    output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
 
-        out_map_dir = os.path.join(output, "Bam")                                               # Folder
-        out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
-        output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+    # Check if sample has been already analysed
+    # If True, sample does not need to be analysed again
+    print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample + END_FORMATTING)
 
-        # Check if sample has been already analysed
-        # If True, sample does not need to be analysed again
-        if sample in new_samples:
-            new_sample_number = str(int(new_sample_number) + 1)
-            new_sample_total = str(len(new_samples))
-            print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                        " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
-        else:
-            print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                        " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+    # True if not .rg.markdup.trimmed.sorted.bam exits
+    # (trimming and mapping of alingned reads is already done)
+    if not os.path.isfile(output_markdup_trimmed_file):
+        
+        # INPUT ARGUMENTS
+        ################
+        check_file_exists(r1_file)
+        check_file_exists(r2_file)
 
-        # True if not .rg.markdup.trimmed.sorted.bam exits
-        # (trimming and mapping of alingned reads is already done)
-        if not os.path.isfile(output_markdup_trimmed_file):
-            
-            # INPUT ARGUMENTS
-            ################
-            check_file_exists(r1_file)
-            check_file_exists(r2_file)
+        # QUALITY CHECK in RAW with fastqc
+        ######################################################
+        # Check quality of input fastq with fastqc and store info in output/Quality/raw
+        check_quality(r1_file, r2_file, output, "Quality", "raw", sample)
 
-            # QUALITY CHECK in RAW with fastqc
-            ######################################################
-            # Check quality of input fastq with fastqc and store info in output/Quality/raw
-            check_quality(r1_file, r2_file, output, "Quality", "raw", sample)
+        # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
+        ###################################################
+        # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
+        # by using fastp. Output is in output/Trimmed
+        output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, sample, output)
 
-            # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
-            ###################################################
-            # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
-            # by using fastp. Output is in output/Trimmed
-            output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, sample, output)
+        # QUALITY CHECK in TRIMMED with fastqc
+        ######################################################
+        # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
+        check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", sample)
 
-            # QUALITY CHECK in TRIMMED with fastqc
-            ######################################################
-            # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
-            check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", sample)
-
-            # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-            #####################################################
-            # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
-            output_map_file = mapping(output_trimming_file_r1, output_trimming_file_r2, sample, output, reference)
-
-            #MARK DUPLICATES WITH PICARDTOOLS ###################
-            #####################################################
-            # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
-            # by a sorted without duplicates bam file.
-            output_markdup_file = mark_duplicates(output_map_file, sample, output)
-
-            #TRIM PRIMERS WITH ivar trim ########################
-            #####################################################
-            # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
-            trim_ivar(output_markdup_trimmed_file, output_markdup_file, sample, primers)
-
-        else:
-            print(YELLOW + DIM + output_markdup_trimmed_file +
-                    " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
-
-        ########################END OF MAPPING AND BAM MANIPULATION##########################
-        #####################################################################################
-
-        #VARIANT CALLING WTIH ivar variants##################
+        # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
         #####################################################
-        # Variant calling with ivar. Output is located in output/Variants/ivar_raw
-        out_ivar_variant_file = ivar_variant_calling(output, output_markdup_trimmed_file, sample, reference, annotation)
+        # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
+        output_map_file = mapping(output_trimming_file_r1, output_trimming_file_r2, sample, output, reference)
 
-        #VARIANT FILTERING ##################################
+        #MARK DUPLICATES WITH PICARDTOOLS ###################
         #####################################################
-        # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
-        variant_filtering(output, sample, out_ivar_variant_file)
+        # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
+        # by a sorted without duplicates bam file.
+        output_markdup_file = mark_duplicates(output_map_file, sample, output)
 
-        #CREATE CONSENSUS with ivar consensus##################
-        #######################################################
-        # Create a consensus fasta file from bam file trimmed and without duplicates.
-        # Output is located in output/Consensus/ivar.
-        consensus_create(output, sample, output_markdup_trimmed_file)
+        #TRIM PRIMERS WITH ivar trim ########################
+        #####################################################
+        # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
+        trim_ivar(output_markdup_trimmed_file, output_markdup_file, sample, primers)
 
-        ########################CREATE STATS AND QUALITY FILTERS###############################
-        #######################################################################################
-        #CREATE Bamstats #######################################
-        ########################################################
-        # Compute metrics from trimmed and without duplicates bam file using samtools.
-        # Output is located in output/Stats/Bamstats.
-        bamstats(output, sample, output_markdup_trimmed_file)
+    else:
+        print(YELLOW + DIM + output_markdup_trimmed_file +
+                " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
 
-        #CREATE CoverageStats ##################################
-        ########################################################
-        coverage_stats(output, sample, output_markdup_trimmed_file)
+    ########################END OF MAPPING AND BAM MANIPULATION##########################
+    #####################################################################################
+
+    #VARIANT CALLING WTIH ivar variants##################
+    #####################################################
+    # Variant calling with ivar. Output is located in output/Variants/ivar_raw
+    out_ivar_variant_file = ivar_variant_calling(output, output_markdup_trimmed_file, sample, reference, annotation)
+
+    #VARIANT FILTERING ##################################
+    #####################################################
+    # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
+    variant_filtering(output, sample, out_ivar_variant_file)
+
+    #CREATE CONSENSUS with ivar consensus##################
+    #######################################################
+    # Create a consensus fasta file from bam file trimmed and without duplicates.
+    # Output is located in output/Consensus/ivar.
+    consensus_create(output, sample, output_markdup_trimmed_file)
+
+    ########################CREATE STATS AND QUALITY FILTERS###############################
+    #######################################################################################
+    #CREATE Bamstats #######################################
+    ########################################################
+    # Compute metrics from trimmed and without duplicates bam file using samtools.
+    # Output is located in output/Stats/Bamstats.
+    bamstats(output, sample, output_markdup_trimmed_file)
+
+    #CREATE CoverageStats ##################################
+    ########################################################
+    coverage_stats(output, sample, output_markdup_trimmed_file)
 
 
 output = sys.argv[0]
 primers = sys.argv[1]
 r1_file = sys.argv[2]
 r2_file = sys.argv[3]
-sample_list_F = sys.argv[4]
-new_samples = sys.argv[5]
-reference = sys.argv[6]
-annotation = sys.argv[7]
+reference = sys.argv[4]
+annotation = sys.argv[5]
 
-map_sample(output, primers, r1_file, r2_file, sample_list_F, new_samples, reference, annotation)
+map_sample(output, primers, r1_file, r2_file, reference, annotation)
