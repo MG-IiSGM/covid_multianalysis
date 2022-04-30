@@ -479,9 +479,9 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     s = ""
     f = open("%s/para.list" %(output), "r")
     for l in f:
-        s+= "\"" + l.strip() +"\""
+        s+= "\"" + l.strip() +"\"" + " "
     f.close()
-    os.system("parallel -j ::: %s" %("8", s))
+    os.system("parallel -j %s ::: %s" %("8", s))
     os.system("rm %s" %f)
 
     # Necessary variables
