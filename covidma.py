@@ -610,7 +610,7 @@ def useraa_annotation(name, logger, sample, output, root, args):
         user_annotation_aa(
             filename, out_annot_aa_file, aa_files=args.annot_aa)
 
-def pangolin_annot(output, logger, args):
+def pangolin_annot(output, name, root, logger, args, executor):
     """
     Function that annotate consensus (Consensus/ivar) fasta files
     with pangolin in order to obtain the sample linage.
@@ -618,59 +618,23 @@ def pangolin_annot(output, logger, args):
     The output is stored in Annotation/pangolin.
     """
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
-        futures_pangolin = []
-
-        out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
-        out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")                            # subfolder
-
-        out_annot_dir = os.path.join(output, "Annotation")                  # Folder
-        out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
-
-        for root, _, files in os.walk(out_consensus_ivar_dir):
-            if root == out_consensus_ivar_dir:
-                for name in files:
-                    if name.endswith('.fa'):
-                        sample = name.split('.')[0]
-                        filename = os.path.join(root, name)
-                        out_pangolin_filename = sample + ".lineage.csv"
-                        out_pangolin_file = os.path.join(
-                            out_annot_pangolin_dir, out_pangolin_filename)
-                        if os.path.isfile(out_pangolin_file):
-                            logger.info(YELLOW + DIM + out_pangolin_file +
-                                        " EXIST\nOmmiting Lineage for  sample " + sample + END_FORMATTING)
-                        else:
-                            logger.info(
-                                GREEN + "Obtaining Lineage in sample " + sample + END_FORMATTING)
-                            # Annotate variants with pangolin to obtain the linage
-                            future = executor.submit(
-                                annotate_pangolin, filename, out_annot_pangolin_dir, out_pangolin_filename, threads=args.threads, max_ambig=0.6)
-                            futures_pangolin.append(future)
-                for future in concurrent.futures.as_completed(futures_pangolin):
-                    logger.info(future.result())
-
-def user_aa_to_html(out_annot_user_aa_dir, group_name):
-    """
-    Function that converts user_aa annotation to html.
-
-    Html files are generated in Annotation/user_aa.
-    """
-
-    annotated_samples = []
-    logger.info('Adapting annotation to html in {}'.format(group_name))
-    for root, _, files in os.walk(out_annot_user_aa_dir):
-        if root == out_annot_user_aa_dir:
-            for name in files:
-                if name.endswith('.tsv'):
-                    sample = name.split('.')[0]
-                    annotated_samples.append(sample)
-                    filename = os.path.join(root, name)
-                    annotation_to_html(filename, sample)
-    annotated_samples = [str(x) for x in annotated_samples]
-    report_samples_html_all = report_samples_html.replace(
-        'ALLSAMPLES', ('","').join(annotated_samples))  # NEW
-    with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
-        f.write(report_samples_html_all)
+    out_annot_dir = os.path.join(output, "Annotation")                  # Folder
+    out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
+    sample = name.split('.')[0]
+    filename = os.path.join(root, name)
+    out_pangolin_filename = sample + ".lineage.csv"
+    out_pangolin_file = os.path.join(
+        out_annot_pangolin_dir, out_pangolin_filename)
+    if os.path.isfile(out_pangolin_file):
+        logger.info(YELLOW + DIM + out_pangolin_file +
+                    " EXIST\nOmmiting Lineage for  sample " + sample + END_FORMATTING)
+    else:
+        logger.info(
+            GREEN + "Obtaining Lineage in sample " + sample + END_FORMATTING)
+        # Annotate variants with pangolin to obtain the linage
+        future = executor.submit(
+            annotate_pangolin, filename, out_annot_pangolin_dir, out_pangolin_filename, threads=args.threads, max_ambig=0.6)
+                
 
 def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir):
     """
@@ -937,11 +901,42 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     #####################################################
     # Annotate consensus fasta files to obtian sample linage using pangolin.
     # Output is located in Annotation/pangolin.
-    pangolin_annot(output, logger, args)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
+
+        out_consensus_dir = os.path.join(output, "Consensus")                                       # Folder
+        out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar") 
+                                   # subfolder
+        nproc = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=nproc, )
+        for root, _, files in os.walk(out_consensus_ivar_dir):
+            if root == out_consensus_ivar_dir:
+                for name in files:
+                    if name.endswith('.fa'):
+                        pool.apply_async(pangolin_annot, args=(output, name, root, logger, args, executor))
+        pool.close()
+        pool.join() # wait until all process end        
 
     # USER AA TO HTML
     # Convert tsv user_aa annotation to html. Files are created in output/Annotation/user_aa.
-    user_aa_to_html(out_annot_user_aa_dir, group_name)
+    annotated_samples = []
+    nproc = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=nproc, )
+    logger.info('Adapting annotation to html in {}'.format(group_name))
+    for root, _, files in os.walk(out_annot_user_aa_dir):
+        if root == out_annot_user_aa_dir:
+            for name in files:
+                if name.endswith('.tsv'):
+                    sample = name.split('.')[0]
+                    annotated_samples.append(sample)
+                    filename = os.path.join(root, name)
+                    pool.apply_async(annotation_to_html, args=(filename, sample))
+    pool.close()
+    pool.join()
+    annotated_samples = [str(x) for x in annotated_samples]
+    report_samples_html_all = report_samples_html.replace(
+        'ALLSAMPLES', ('","').join(annotated_samples))  # NEW
+    with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
+        f.write(report_samples_html_all)
 
     # SNP COMPARISON using tsv variant files
     ######################################################
