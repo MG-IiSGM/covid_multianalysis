@@ -838,35 +838,13 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
-    command = []
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-        print("python map_sample.py %s %s %s %s %s %s %s %s" %(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        command.append("python map_sample.py %s %s %s %s %s %s %s %s" %(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        print()
-        # counter2 += 1
-        # if counter2 == len(r1):
-        #     break
-        # elif counter < nproc:
-        #     pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        #     counter += 1
-        # else:
-        #     pool.close()
-        #     pool.join() # wait until all process end
-        #     # New process
-        #     nproc = multiprocessing.cpu_count()
-        #     pool = multiprocessing.Pool(processes=nproc)
-        #     counter = 0
-    # pool.close()
-    # pool.join()
-    # String to store commands
-    s = ""
-    for i in command:
-        s += "\"" + i + "\"" + " "
+        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
 
-    # Run merge in parallel
-    os.system('parallel ::: %s' %s)
+    pool.close()
+    pool.join()
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
