@@ -484,7 +484,9 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
                 # Execute in parallel
                 s = ""
                 for c in command:
-                    s+= "\"" + c +"\"" + " "
+                    if c != command[0]:
+                        s += " "
+                    s += "\"" + c +"\""
                 os.system("parallel -j %s ::: %s" %(nproc, s))
                 if counter != len(r1):
                     # open new file
