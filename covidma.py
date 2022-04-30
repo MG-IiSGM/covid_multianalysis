@@ -862,7 +862,6 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # pool.join()
     # String to store commands
     s = ""
-    print(command)
     for i in command:
         s += "\"" + i + "\"" + " "
 
