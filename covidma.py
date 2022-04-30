@@ -845,8 +845,8 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
     p = SimpleProcess()
     for r1_file, r2_file in zip(r1, r2):
-        p = SimpleProcess()
-        p.start(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        p = SimpleProcess(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        p.start()
         print(p)
         p.join()
             # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
