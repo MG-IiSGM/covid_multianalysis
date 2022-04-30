@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Standard library imports
+from distutils.cmd import Command
 from distutils.command import check
 import multiprocessing
 import os
@@ -837,26 +838,34 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
-    counter = 0
-    counter2 = -1
+    command = []
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-        counter2 += 1
-        if counter2 == len(r1):
-            break
-        elif counter < nproc:
-            pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-            counter += 1
-        else:
-            pool.close()
-            pool.join() # wait until all process end
-            # New process
-            nproc = multiprocessing.cpu_count()
-            pool = multiprocessing.Pool(processes=nproc)
-            counter = 0
-    pool.close()
-    pool.join()
+        command.append("python map_sample.py %s %s %s %s %s %s %s %s" %(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        # counter2 += 1
+        # if counter2 == len(r1):
+        #     break
+        # elif counter < nproc:
+        #     pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        #     counter += 1
+        # else:
+        #     pool.close()
+        #     pool.join() # wait until all process end
+        #     # New process
+        #     nproc = multiprocessing.cpu_count()
+        #     pool = multiprocessing.Pool(processes=nproc)
+        #     counter = 0
+    # pool.close()
+    # pool.join()
+    # String to store commands
+    s = ""
+
+    for i in command:
+        s += "\"" + i + "\"" + " "
+
+    # Run merge in parallel
+    os.system('parallel ::: %s' %s)
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
