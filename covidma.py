@@ -480,7 +480,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
         if sample in sample_list_F:
             to_write = "python -u /home/laura/Laura_intel/Desktop/covid_multianalysis/map_sample.py %s %s %s %s %s %s\n" %(output, primers, r1_file, r2_file, reference, annotation)
             f.write(to_write)
-            if counter == len(r1) or counter%15 == 0:
+            if counter == len(r1) or counter%10 == 0:
                 # Execute in parallel
                 f.close()
                 s = ""
