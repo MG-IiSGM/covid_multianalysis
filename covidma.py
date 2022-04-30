@@ -845,6 +845,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     for r1_file, r2_file in zip(r1, r2):
         thread = threading.Thread(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         thread.start()
+        thread.join()
             # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
             # concurrent.futures.as_completed(map)
             #mapped.append(map)
