@@ -10,6 +10,7 @@ import sys
 import re
 import logging
 import concurrent.futures
+from slurm import SimpleProcess
 
 # Third party imports
 import argparse
@@ -842,18 +843,12 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # mapped = []
     # Loop for paralellization
     # with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
-    threads = []
+    p = SimpleProcess()
     for r1_file, r2_file in zip(r1, r2):
-        threads.append(threading.Thread(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)))
-
-    for i in range(len(threads)):
-        threads[i].start()
-        if i == len(threads):
-            while len (threading.enumerate()) > 2:
-                os.system("sleep 1")
-        else:
-            while len (threading.enumerate()) < 13:
-                os.system("sleep 1")
+        p = SimpleProcess()
+        p.start(map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        print(p)
+        p.join()
             # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
             # concurrent.futures.as_completed(map)
             #mapped.append(map)
