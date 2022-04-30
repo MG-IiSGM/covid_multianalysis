@@ -4,6 +4,7 @@
 from distutils.cmd import Command
 from distutils.command import check
 import multiprocessing
+import threading
 import os
 import sys
 import re
@@ -838,12 +839,14 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     # pool = multiprocessing.Pool(processes=nproc)
-    mapped = []
+    # mapped = []
     # Loop for paralellization
-    with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
-        for r1_file, r2_file in zip(r1, r2):
-            map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
-            concurrent.futures.as_completed(map)
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
+    for r1_file, r2_file in zip(r1, r2):
+        thread = threading.Thread(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        thread.start()
+            # map = executor.submit(map_sample, output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
+            # concurrent.futures.as_completed(map)
             #mapped.append(map)
             #pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         # for map in concurrent.futures.as_completed(mapped):
