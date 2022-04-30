@@ -1,7 +1,39 @@
 #!/usr/bin/env python
 
+
+# Standard library imports
+from distutils.cmd import Command
+from distutils.command import check
+import multiprocessing
+import os
+import sys
+import re
+import logging
+import concurrent.futures
+
+# Third party imports
+import argparse
+import subprocess
+import datetime
+
+
 # Local application imports
-from covidma import *
+from misc import check_file_exists, extract_sample, check_create_dir, execute_subprocess, \
+    extract_read_list, file_to_list, obtain_group_cov_stats, clean_unwanted_files, \
+    check_reanalysis, vcf_stats, remove_low_quality, obtain_overal_stats
+from preprocessing import fastqc_quality, fastp_trimming, format_html_image
+from pe_mapper import bwa_mapping, sam_to_index_bam
+from bam_variant import picard_dictionary, samtools_faidx, picard_markdup, ivar_trim, ivar_variants, ivar_consensus, \
+    replace_consensus_header, create_bamstat, create_coverage, create_consensus
+from vcf_process import filter_tsv_variants
+from annotation import annotate_snpeff, annotate_pangolin, user_annotation, user_annotation_aa, annotation_to_html, \
+    report_samples_html
+from compare_snp import ddtb_add, ddtb_compare, ddbb_create_intermediate, revised_df, remove_position_range
+
+
+# Local application imports
+from covidma import check_quality, trim_read, mapping, mark_duplicates, trim_ivar, ivar_variant_calling \
+    , variant_filtering, consensus_create, bamstats, coverage_stats
 
 output = sys.argv[0]
 args = sys.argv[1]
