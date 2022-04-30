@@ -846,7 +846,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
             mapped.append(map)
             #pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         for map in concurrent.futures.as_completed(mapped):
-            logger.info(map.result())
+            pass
     # pool.close()
     # pool.join()
 
