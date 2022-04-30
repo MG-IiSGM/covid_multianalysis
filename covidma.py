@@ -473,8 +473,8 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
         f.write(to_write)
     f.close()
     os.system("parallel -j %s < %s" %("8", f))
-    os.system("rm f")
-    
+    os.system("rm %s" %f)
+
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
     out_variant_dir = os.path.join(output, "Variants") 
