@@ -473,7 +473,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
         sample = extract_sample(r1_file, r2_file)
         # True if samples needs to be analysed
         if sample in sample_list_F:
-            to_write = "python -u map_sample.py %s %s %s %s %s %s\n" %(output, primers, r1_file, r2_file, reference, annotation)
+            to_write = "python -u /home/laura/Desktop/covid_multianalysis/map_sample.py %s %s %s %s %s %s\n" %(output, primers, r1_file, r2_file, reference, annotation)
             f.write(to_write)
     f.close()
     os.system("parallel -j %s < %s" %("8", f))
