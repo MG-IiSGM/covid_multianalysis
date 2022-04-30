@@ -476,7 +476,12 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
             to_write = "python -u /home/laura/Desktop/covid_multianalysis/map_sample.py %s %s %s %s %s %s\n" %(output, primers, r1_file, r2_file, reference, annotation)
             f.write(to_write)
     f.close()
-    os.system("parallel -j %s -a  %s" %("8", f))
+    s = ""
+    f = open("%s/para.list" %(output), "r")
+    for l in f:
+        s+= "\"" + l.strip() +"\""
+    f.close()
+    os.system("parallel -j ::: %s" %("8", s))
     os.system("rm %s" %f)
 
     # Necessary variables
