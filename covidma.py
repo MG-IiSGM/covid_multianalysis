@@ -471,7 +471,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     counter = 0
 
     # file for parallelization
-    f = open("%s/para.list" %(output), "w")
+    command = []
     for r1_file, r2_file in zip(r1, r2):
         counter += 1
         # Extract sample name
@@ -479,20 +479,16 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
         # True if samples needs to be analysed
         if sample in sample_list_F:
             to_write = "python -u /home/laura/Laura_intel/Desktop/covid_multianalysis/map_sample.py %s %s %s %s %s %s\n" %(output, primers, r1_file, r2_file, reference, annotation)
-            f.write(to_write)
+            command.append(to_write)
             if counter == len(r1) or counter%5 == 0:
                 # Execute in parallel
-                f.close()
                 s = ""
-                f2 = open("%s/para.list" %(output), "r")
-                for l in f2:
-                    s+= "\"" + l.strip() +"\"" + " "
-                f2.close()
+                for c in command:
+                    s+= "\"" + c +"\"" + " "
                 os.system("parallel -j %s ::: %s" %(nproc, s))
-                os.system("rm %s" %f)
                 if counter != len(r1):
                     # open new file
-                    f = open("%s/para.list" %(output), "w")
+                    command = []
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
@@ -527,7 +523,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # Annotates variants using snpEff. Output is located in output/Annotation/snpeff.
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
-
+    nproc = multiprocessing.cpu_count()
     if args.snpeff_database:
         # Variables for parallelization
         pool = multiprocessing.Pool(processes=nproc)
