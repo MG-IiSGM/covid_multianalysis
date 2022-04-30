@@ -466,6 +466,9 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     # primers
     primers = args.primers
 
+    # N CPUs
+    nproc = multiprocessing.cpu_count()
+
     # file for parallelization
     f = open("%s/para.list" %(output), "w")
     for r1_file, r2_file in zip(r1, r2):
@@ -481,7 +484,7 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
     for l in f:
         s+= "\"" + l.strip() +"\"" + " "
     f.close()
-    os.system("parallel -j %s ::: %s" %("8", s))
+    os.system("parallel -j %s ::: %s" %(str(nproc), s))
     os.system("rm %s" %f)
 
     # Necessary variables
@@ -520,7 +523,6 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
 
     if args.snpeff_database:
         # Variables for parallelization
-        nproc = multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=nproc)
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_filtered_ivar_dir):
@@ -541,7 +543,6 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
     else:
         # Variables for parallelization
-        nproc = multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=nproc)
         # CHANGE FOR RAW/FILTERED ANNOTATION
         for root, _, files in os.walk(out_variant_ivar_dir):
@@ -561,7 +562,6 @@ def covidma_pipeline(output, args, logger, r1, r2, sample_list_F, new_samples, g
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
         # Variables for parallelization
-        nproc = multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=nproc, )
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
