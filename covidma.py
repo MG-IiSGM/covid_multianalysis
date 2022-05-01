@@ -800,6 +800,38 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
         else:
             logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                     " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
+        
+        ########################END OF MAPPING AND BAM MANIPULATION##########################
+        #####################################################################################
+
+        #VARIANT CALLING WTIH ivar variants##################
+        #####################################################
+        # Variant calling with ivar. Output is located in output/Variants/ivar_raw
+        out_ivar_variant_file = ivar_variant_calling(logger, output, output_markdup_trimmed_file, sample, reference, annotation)
+
+        #VARIANT FILTERING ##################################
+        #####################################################
+        # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
+        variant_filtering(output, sample, out_ivar_variant_file, logger)
+
+        #CREATE CONSENSUS with ivar consensus##################
+        #######################################################
+        # Create a consensus fasta file from bam file trimmed and without duplicates.
+        # Output is located in output/Consensus/ivar.
+        consensus_create(output, sample, output_markdup_trimmed_file, logger)
+
+        ########################CREATE STATS AND QUALITY FILTERS###############################
+        #######################################################################################
+        #CREATE Bamstats #######################################
+        ########################################################
+        # Compute metrics from trimmed and without duplicates bam file using samtools.
+        # Output is located in output/Stats/Bamstats.
+        bamstats(output, sample, output_markdup_trimmed_file, logger, args)
+
+        #CREATE CoverageStats ##################################
+        ########################################################
+        coverage_stats(output, sample, output_markdup_trimmed_file, logger)
+
 
 def variant_calling(r1_file, r2_file, sample_list_F, logger, output, args):
 
@@ -845,16 +877,20 @@ def variant_calling(r1_file, r2_file, sample_list_F, logger, output, args):
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Loop for paralellization
-    for r1_file, r2_file in zip(r1, r2):
-        map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
- 
-    # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
     for r1_file, r2_file in zip(r1, r2):
-        pool.apply_async(variant_calling, args=(r1_file, r2_file, sample_list_F, logger, output, args))
+        map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
     pool.close()
     pool.join() # wait until all process end
+ 
+    # # Variables for parallelization
+    # nproc = multiprocessing.cpu_count()
+    # pool = multiprocessing.Pool(processes=nproc)
+    # for r1_file, r2_file in zip(r1, r2):
+    #     pool.apply_async(variant_calling, args=(r1_file, r2_file, sample_list_F, logger, output, args))
+    # pool.close()
+    # pool.join() # wait until all process end
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
