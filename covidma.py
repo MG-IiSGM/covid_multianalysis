@@ -801,6 +801,17 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
             logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                     " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
         
+
+def variant_calling(r1_file, r2_file, sample_list_F, logger, output, args, reference, annotation):
+
+    out_map_dir = os.path.join(output, "Bam")                                               # Folder
+    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+    output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+    # Extract sample name
+    sample = extract_sample(r1_file, r2_file)
+    # True if samples needs to be analysed
+    if sample in sample_list_F:
         ########################END OF MAPPING AND BAM MANIPULATION##########################
         #####################################################################################
 
@@ -832,24 +843,19 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
         ########################################################
         coverage_stats(output, sample, output_markdup_trimmed_file, logger)
 
-
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Loop for paralellization
+    for r1_file, r2_file in zip(r1, r2):
+        map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
+ 
+    # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
     for r1_file, r2_file in zip(r1, r2):
-        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        pool.apply_async(variant_calling, args=(r1_file, r2_file, sample_list_F, logger, output, args, reference, annotation))
     pool.close()
     pool.join() # wait until all process end
- 
-    # # Variables for parallelization
-    # nproc = multiprocessing.cpu_count()
-    # pool = multiprocessing.Pool(processes=nproc)
-    # for r1_file, r2_file in zip(r1, r2):
-    #     pool.apply_async(variant_calling, args=(r1_file, r2_file, sample_list_F, logger, output, args))
-    # pool.close()
-    # pool.join() # wait until all process end
 
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
@@ -901,6 +907,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     # USER DEFINED ANNOTATION ###########################
     #####################################################
+    pool = multiprocessing.Pool(processes=nproc)
     # Annotate variants using user files. Output is located in output/Annotation/user.
     if not args.annot_bed and not args.annot_vcf:
         logger.info(
@@ -919,6 +926,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     #####################################################
     # Annotate variants using user aa files. Output is located in output/Annotation/user_aa.
     # USER AA DEFINED
+    pool = multiprocessing.Pool(processes=nproc)
     if not args.annot_aa:
         logger.info(
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
