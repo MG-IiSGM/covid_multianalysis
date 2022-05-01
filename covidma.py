@@ -723,53 +723,6 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
-def quality_trim(r1_file, r2_file, output, logger, args, sample):
-
-    # QUALITY CHECK in RAW with fastqc
-    ######################################################
-    # Check quality of input fastq with fastqc and store info in output/Quality/raw
-    check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
-
-    # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
-    ###################################################
-    # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
-    # by using fastp. Output is in output/Trimmed
-    output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output, args)
-
-    # QUALITY CHECK in TRIMMED with fastqc
-    ######################################################
-    # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
-    check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
-
-def map_sample(sample, output, logger, reference, args):
-
-    # Set name files
-    out_map_dir = os.path.join(output, "Bam")                                               # Folder
-    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
-    output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
-    out_trim_dir = os.path.join(output, "Trimmed")                          # Folder
-    out_trim_name_r1 = sample + ".trimmed_R1.fastq.gz"                      # r1 filename
-    out_trim_name_r2 = sample + ".trimmed_R2.fastq.gz"                      # r2 filanema
-    output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)  # absolute path r1 filename
-    output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)  # absolute path r2 filename
-
-
-    # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-    #####################################################
-    # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
-    output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args)
-
-    #MARK DUPLICATES WITH PICARDTOOLS ###################
-    #####################################################
-    # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
-    # by a sorted without duplicates bam file.
-    output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
-
-    #TRIM PRIMERS WITH ivar trim ########################
-    #####################################################
-    # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
-    trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
-
 def variant_calling(logger, output, sample, args):
 
     # Set name files
@@ -837,44 +790,42 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
             # True if not .rg.markdup.trimmed.sorted.bam exits
             # (trimming and mapping of alingned reads is already done)
             if not os.path.isfile(output_markdup_trimmed_file):
-                quality_trim(r1_file, r2_file, output, logger, args, sample)
+
+
+                # QUALITY CHECK in RAW with fastqc
+                ######################################################
+                # Check quality of input fastq with fastqc and store info in output/Quality/raw
+                check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
+
+                # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
+                ###################################################
+                # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
+                # by using fastp. Output is in output/Trimmed
+                output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output, args)
+
+                # QUALITY CHECK in TRIMMED with fastqc
+                ######################################################
+                # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
+                check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
+
+                # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+                #####################################################
+                # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
+                output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args)
+
+                #MARK DUPLICATES WITH PICARDTOOLS ###################
+                #####################################################
+                # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
+                # by a sorted without duplicates bam file.
+                output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
+
+                #TRIM PRIMERS WITH ivar trim ########################
+                #####################################################
+                # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
+                trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
             else:
                 logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                     " EXIST\nOmmiting Quality check in sample " + sample + END_FORMATTING)
-
-    # Loop for paralellization
-    for r1_file, r2_file in zip(r1, r2):
-        # Extract sample name
-        sample = extract_sample(r1_file, r2_file)
-        # Counter for new samples
-        new_sample_number = 0
-        # True if samples needs to be analysed
-        if sample in sample_list_F:
-            sample_number = str(sample_list_F.index(sample) + 1)
-            sample_total = str(len(sample_list_F))
-
-            out_map_dir = os.path.join(output, "Bam")                                               # Folder
-            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
-            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
-
-            # Check if sample has been already analysed
-            # If True, sample does not need to be analysed again
-            if sample in new_samples:
-                new_sample_number = str(int(new_sample_number) + 1)
-                new_sample_total = str(len(new_samples))
-                logger.info("\n" + WHITE_BG + "STARTING Mapping: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
-            else:
-                logger.info("\n" + WHITE_BG + "STARTING Mapping: " + sample +
-                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
-
-            # True if not .rg.markdup.trimmed.sorted.bam exits
-            # (trimming and mapping of alingned reads is already done)
-            if not os.path.isfile(output_markdup_trimmed_file):
-                map_sample(sample, output, logger, reference, args)
-            else:
-                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
-                    " EXIST\nOmmiting mapping in sample " + sample + END_FORMATTING)
 
     # Loop for paralellization
     # Variables for parallelization
