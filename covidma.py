@@ -842,7 +842,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         r1_file = r1[i]
         r2_file = r2[i]
         pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
-        if i%10 == 0 or i == len(r1) - 1:
+        if i and (i%10 == 0 or i == len(r1) - 1):
             pool.close()
             pool.join() # wait until all process end
             if i != len(r1) - 1:
