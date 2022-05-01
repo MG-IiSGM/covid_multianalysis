@@ -839,7 +839,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
     for r1_file, r2_file in zip(r1, r2):
-        pool.map_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
     pool.close()
     pool.join() # wait until all process end
  
