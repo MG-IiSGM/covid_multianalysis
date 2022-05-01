@@ -326,9 +326,6 @@ def trim_read(r1_file, r2_file, logger, sample, output, args):
         # Use fastp for trimming
         fastp_trimming(r1_file, r2_file, sample, out_trim_dir, threads=args.threads, 
             min_qual=20, window_size=10, min_len=35)
-    
-    # Return path of trimmed files
-    return (output_trimming_file_r1, output_trimming_file_r2)
 
 def mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args):
     """
@@ -726,122 +723,190 @@ def snp_comparison(logger, output, group_name, out_variant_ivar_dir, out_stats_c
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
-def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference):
-    """
-    Function that maps reads to reference genome and performs variant calling.
-    """
+def quality_trim(r1_file, r2_file, output, logger, args, sample):
 
-    # Extract sample name
-    sample = extract_sample(r1_file, r2_file)
-    # Counter for new samples
-    new_sample_number = 0
-    # True if samples needs to be analysed
-    if sample in sample_list_F:
+    # QUALITY CHECK in RAW with fastqc
+    ######################################################
+    # Check quality of input fastq with fastqc and store info in output/Quality/raw
+    check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
 
-        sample_number = str(sample_list_F.index(sample) + 1)
-        sample_total = str(len(sample_list_F))
+    # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
+    ###################################################
+    # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
+    # by using fastp. Output is in output/Trimmed
+    output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output, args)
 
-        out_map_dir = os.path.join(output, "Bam")                                               # Folder
-        out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
-        output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+    # QUALITY CHECK in TRIMMED with fastqc
+    ######################################################
+    # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
+    check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
 
-        # Check if sample has been already analysed
-        # If True, sample does not need to be analysed again
-        if sample in new_samples:
-            new_sample_number = str(int(new_sample_number) + 1)
-            new_sample_total = str(len(new_samples))
-            logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                        " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
-        else:
-            logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
-                        " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+def map_sample(sample, output, logger, reference, args):
 
-        # True if not .rg.markdup.trimmed.sorted.bam exits
-        # (trimming and mapping of alingned reads is already done)
-        if not os.path.isfile(output_markdup_trimmed_file):
-            
-            # INPUT ARGUMENTS
-            ################
-            check_file_exists(r1_file)
-            check_file_exists(r2_file)
+    # Set name files
+    out_map_dir = os.path.join(output, "Bam")                                               # Folder
+    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+    output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+    out_trim_dir = os.path.join(output, "Trimmed")                          # Folder
+    out_trim_name_r1 = sample + ".trimmed_R1.fastq.gz"                      # r1 filename
+    out_trim_name_r2 = sample + ".trimmed_R2.fastq.gz"                      # r2 filanema
+    output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)  # absolute path r1 filename
+    output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)  # absolute path r2 filename
 
-            # QUALITY CHECK in RAW with fastqc
-            ######################################################
-            # Check quality of input fastq with fastqc and store info in output/Quality/raw
-            check_quality(r1_file, r2_file, output, "Quality", "raw", logger, args, sample)
 
-            # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
-            ###################################################
-            # Trim reads by window. Trim regions or reads that does not satisfy min_qual=20, window_size=10, min_len=35
-            # by using fastp. Output is in output/Trimmed
-            output_trimming_file_r1, output_trimming_file_r2 = trim_read(r1_file, r2_file, logger, sample, output, args)
+    # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+    #####################################################
+    # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
+    output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args)
 
-            # QUALITY CHECK in TRIMMED with fastqc
-            ######################################################
-            # Check quality of trimmed fastq with fastqc and store info in output/Quality/processed
-            check_quality(output_trimming_file_r1, output_trimming_file_r2, output, "Quality", "processed", logger, args, sample)
+    #MARK DUPLICATES WITH PICARDTOOLS ###################
+    #####################################################
+    # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
+    # by a sorted without duplicates bam file.
+    output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
 
-            # MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-            #####################################################
-            # Map trimmed reads to reference genome. As output a sorted bam file is generated in output/Bam
-            output_map_file = mapping(logger, output_trimming_file_r1, output_trimming_file_r2, sample, output, reference, args)
+    #TRIM PRIMERS WITH ivar trim ########################
+    #####################################################
+    # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
+    trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
 
-            #MARK DUPLICATES WITH PICARDTOOLS ###################
-            #####################################################
-            # Mark and remove duplicates in bam file. Previous sorted bam file in output/Bam is sustituted
-            # by a sorted without duplicates bam file.
-            output_markdup_file = mark_duplicates(logger, output_map_file, sample, output)
+def variant_calling(logger, output, sample, args):
 
-            #TRIM PRIMERS WITH ivar trim ########################
-            #####################################################
-            # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
-            trim_ivar(logger, output_markdup_trimmed_file, output_markdup_file, sample, args)
+    # Set name files
+    out_map_dir = os.path.join(output, "Bam")                                               # Folder
+    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+    output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
 
-        else:
-            logger.info(YELLOW + DIM + output_markdup_trimmed_file +
-                    " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
 
-        ########################END OF MAPPING AND BAM MANIPULATION##########################
-        #####################################################################################
+    #VARIANT CALLING WTIH ivar variants##################
+    #####################################################
+    # Variant calling with ivar. Output is located in output/Variants/ivar_raw
+    out_ivar_variant_file = ivar_variant_calling(logger, output, output_markdup_trimmed_file, sample, reference, annotation)
 
-        #VARIANT CALLING WTIH ivar variants##################
-        #####################################################
-        # Variant calling with ivar. Output is located in output/Variants/ivar_raw
-        out_ivar_variant_file = ivar_variant_calling(logger, output, output_markdup_trimmed_file, sample, reference, annotation)
+    #VARIANT FILTERING ##################################
+    #####################################################
+    # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
+    variant_filtering(output, sample, out_ivar_variant_file, logger)
 
-        #VARIANT FILTERING ##################################
-        #####################################################
-        # Filter variants detected with ivar. Output is located in output/Variants/ivar_filtered
-        variant_filtering(output, sample, out_ivar_variant_file, logger)
+    #CREATE CONSENSUS with ivar consensus##################
+    #######################################################
+    # Create a consensus fasta file from bam file trimmed and without duplicates.
+    # Output is located in output/Consensus/ivar.
+    consensus_create(output, sample, output_markdup_trimmed_file, logger)
 
-        #CREATE CONSENSUS with ivar consensus##################
-        #######################################################
-        # Create a consensus fasta file from bam file trimmed and without duplicates.
-        # Output is located in output/Consensus/ivar.
-        consensus_create(output, sample, output_markdup_trimmed_file, logger)
+    ########################CREATE STATS AND QUALITY FILTERS###############################
+    #######################################################################################
+    #CREATE Bamstats #######################################
+    ########################################################
+    # Compute metrics from trimmed and without duplicates bam file using samtools.
+    # Output is located in output/Stats/Bamstats.
+    bamstats(output, sample, output_markdup_trimmed_file, logger, args)
 
-        ########################CREATE STATS AND QUALITY FILTERS###############################
-        #######################################################################################
-        #CREATE Bamstats #######################################
-        ########################################################
-        # Compute metrics from trimmed and without duplicates bam file using samtools.
-        # Output is located in output/Stats/Bamstats.
-        bamstats(output, sample, output_markdup_trimmed_file, logger, args)
-
-        #CREATE CoverageStats ##################################
-        ########################################################
-        coverage_stats(output, sample, output_markdup_trimmed_file, logger)
+    #CREATE CoverageStats ##################################
+    ########################################################
+    coverage_stats(output, sample, output_markdup_trimmed_file, logger)
 
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
-    # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(processes=nproc)
+    # Loop for paralellization
+    for r1_file, r2_file in zip(r1, r2):
+        # Extract sample name
+        sample = extract_sample(r1_file, r2_file)
+        # Counter for new samples
+        new_sample_number = 0
+        # True if samples needs to be analysed
+        if sample in sample_list_F:
+            sample_number = str(sample_list_F.index(sample) + 1)
+            sample_total = str(len(sample_list_F))
+
+            out_map_dir = os.path.join(output, "Bam")                                               # Folder
+            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+            # Check if sample has been already analysed
+            # If True, sample does not need to be analysed again
+            if sample in new_samples:
+                new_sample_number = str(int(new_sample_number) + 1)
+                new_sample_total = str(len(new_samples))
+                logger.info("\n" + WHITE_BG + "STARTING Quality check: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
+            else:
+                logger.info("\n" + WHITE_BG + "STARTING Quality check: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+
+            # True if not .rg.markdup.trimmed.sorted.bam exits
+            # (trimming and mapping of alingned reads is already done)
+            if not os.path.isfile(output_markdup_trimmed_file):
+                quality_trim(r1_file, r2_file, output, logger, args, sample)
+            else:
+                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
+                    " EXIST\nOmmiting Quality check in sample " + sample + END_FORMATTING)
 
     # Loop for paralellization
     for r1_file, r2_file in zip(r1, r2):
-        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
- 
+        # Extract sample name
+        sample = extract_sample(r1_file, r2_file)
+        # Counter for new samples
+        new_sample_number = 0
+        # True if samples needs to be analysed
+        if sample in sample_list_F:
+            sample_number = str(sample_list_F.index(sample) + 1)
+            sample_total = str(len(sample_list_F))
+
+            out_map_dir = os.path.join(output, "Bam")                                               # Folder
+            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+            # Check if sample has been already analysed
+            # If True, sample does not need to be analysed again
+            if sample in new_samples:
+                new_sample_number = str(int(new_sample_number) + 1)
+                new_sample_total = str(len(new_samples))
+                logger.info("\n" + WHITE_BG + "STARTING Mapping: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
+            else:
+                logger.info("\n" + WHITE_BG + "STARTING Mapping: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+
+            # True if not .rg.markdup.trimmed.sorted.bam exits
+            # (trimming and mapping of alingned reads is already done)
+            if not os.path.isfile(output_markdup_trimmed_file):
+                map_sample(sample, output, logger, reference, args)
+            else:
+                logger.info(YELLOW + DIM + output_markdup_trimmed_file +
+                    " EXIST\nOmmiting mapping in sample " + sample + END_FORMATTING)
+
+    # Loop for paralellization
+    # Variables for parallelization
+    nproc = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=nproc)
+    for r1_file, r2_file in zip(r1, r2):
+        # Extract sample name
+        sample = extract_sample(r1_file, r2_file)
+        # Counter for new samples
+        new_sample_number = 0
+        # True if samples needs to be analysed
+        if sample in sample_list_F:
+            sample_number = str(sample_list_F.index(sample) + 1)
+            sample_total = str(len(sample_list_F))
+
+            out_map_dir = os.path.join(output, "Bam")                                               # Folder
+            out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"                    # Filname
+            output_markdup_trimmed_file = os.path.join(out_map_dir, out_markdup_trimmed_name)       # absolute path to filename
+
+            # Check if sample has been already analysed
+            # If True, sample does not need to be analysed again
+            if sample in new_samples:
+                new_sample_number = str(int(new_sample_number) + 1)
+                new_sample_total = str(len(new_samples))
+                logger.info("\n" + WHITE_BG + "STARTING variant calling: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + " (" + new_sample_number + "/" + new_sample_total + ")" + END_FORMATTING)
+            else:
+                logger.info("\n" + WHITE_BG + "variant calling: " + sample +
+                            " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
+
+            pool.apply_async(variant_calling, args=(logger, output, sample, args))
+
     pool.close()
     pool.join() # wait until all process end
 
@@ -879,8 +944,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
 
-     # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
+    # Variables for parallelization
     pool = multiprocessing.Pool(processes=nproc)
     
     if args.snpeff_database:
@@ -896,6 +960,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # USER DEFINED ANNOTATION ###########################
     #####################################################
     # Annotate variants using user files. Output is located in output/Annotation/user.
+    pool = multiprocessing.Pool(processes=nproc)
     if not args.annot_bed and not args.annot_vcf:
         logger.info(
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
@@ -913,6 +978,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     #####################################################
     # Annotate variants using user aa files. Output is located in output/Annotation/user_aa.
     # USER AA DEFINED
+    pool = multiprocessing.Pool(processes=nproc)
     if not args.annot_aa:
         logger.info(
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
