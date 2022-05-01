@@ -106,7 +106,7 @@ def get_arguments():
         'Parameters', 'parameters for diferent stringent conditions')
 
     params_group.add_argument('-T', '--threads', type=str, dest="threads",
-                                required=False, default=16, help='Threads to use')
+                                required=False, default=1, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest="memory",
                                 required=False, default=32, help='Max memory to use')
 
@@ -809,8 +809,6 @@ def variant_calling(r1_file, r2_file, sample_list_F, logger, output, args):
 
     # Extract sample name
     sample = extract_sample(r1_file, r2_file)
-    # Counter for new samples
-    new_sample_number = 0
     # True if samples needs to be analysed
     if sample in sample_list_F:
         ########################END OF MAPPING AND BAM MANIPULATION##########################
