@@ -850,7 +850,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference)
  
     # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
+    nproc = 120
     pool = multiprocessing.Pool(processes=nproc)
     for r1_file, r2_file in zip(r1, r2):
         pool.apply_async(variant_calling, args=(r1_file, r2_file, sample_list_F, logger, output, args, reference, annotation))
