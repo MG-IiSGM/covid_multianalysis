@@ -841,7 +841,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         r2_file = r2[i]
         p = multiprocessing.Process(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         p.start()
-        p.join()
+        if i % 2 == 0 or i == len(r1) - 1:
+            p.join()
  
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
