@@ -106,7 +106,7 @@ def get_arguments():
         'Parameters', 'parameters for diferent stringent conditions')
 
     params_group.add_argument('-T', '--threads', type=str, dest="threads",
-                                required=False, default=1, help='Threads to use')
+                                required=False, default=16, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest="memory",
                                 required=False, default=32, help='Max memory to use')
 
@@ -841,8 +841,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         r2_file = r2[i]
         p = multiprocessing.Process(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         p.start()
-        if i and (i%2 == 0 or i == len(r1) - 1):
-            p.join()
+        p.join()
  
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
@@ -878,7 +877,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
 
-     # Variables for parallelization
+    # Variables for parallelization
     nproc = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=nproc)
     
