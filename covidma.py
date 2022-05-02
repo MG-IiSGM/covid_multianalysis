@@ -836,17 +836,13 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
     # Loop for paralellization
-    nproc = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(processes=nproc)
     for i in range(len(r1)):
         r1_file = r1[i]
         r2_file = r2[i]
-        pool.apply_async(map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        p = multiprocessing.Process(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
+        p.start()
         if i and (i%10 == 0 or i == len(r1) - 1):
-            pool.close()
-            pool.join() # wait until all process end
-            if i != len(r1) - 1:
-                pool = multiprocessing.Pool(processes=nproc)
+            p.join()
  
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
