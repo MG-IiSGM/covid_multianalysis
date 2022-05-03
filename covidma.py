@@ -842,9 +842,9 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         r2_file = r2[i]
         p = multiprocessing.Process(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         p.start()
-        if counter == 0 or counter == 3 or i == len(r1) - 1:
+        if counter == 0 or counter == 2 or i == len(r1) - 1:
             p.join()
-            if counter == 3:
+            if counter == 2:
                 counter = -1
         counter += 1
  
