@@ -892,6 +892,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         p.start()
                         if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
                             p.join()
+                        counter += 1
 
     # USER DEFINED ANNOTATION ###########################
     #####################################################
@@ -910,6 +911,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         p.start()
                         if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
                             p.join()
+                        counter += 1
 
     # USER AA DEFINED ANNOTATION ########################
     #####################################################
@@ -928,6 +930,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         p.start()
                         if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
                             p.join()
+                        counter += 1
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
