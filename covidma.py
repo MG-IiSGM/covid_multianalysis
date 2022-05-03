@@ -844,7 +844,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         p.start()
         if counter == 0 or counter == 3 or i == len(r1) - 1:
             p.join()
-            counter = -1
+            if counter == 3:
+                counter = -1
         counter += 1
  
     # Necessary variables
