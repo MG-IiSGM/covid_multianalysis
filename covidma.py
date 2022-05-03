@@ -205,6 +205,9 @@ def obtain_reads(args, logger):
 
 def set_folder_structure(output):
 
+    # output
+    check_create_dir(output)
+
     # output/Quality
     out_qc_dir = os.path.join(output, "Quality")
     check_create_dir(out_qc_dir)
@@ -878,54 +881,53 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
 
-    # Variables for parallelization
-    nproc = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(processes=nproc)
-    
     if args.snpeff_database:
         # CHANGE FOR RAW/FILTERED ANNOTATION
+        counter = 0
         for root, _, files in os.walk(out_filtered_ivar_dir):
             if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
-                        pool.apply_async(snpeff_annotation, args=(output, name, root, sample, logger, args))
-        pool.close()
-        pool.join() # wait until all process end
+                        p = multiprocessing.Process(target=snpeff_annotation, args=(output, name, root, sample, logger, args))
+                        p.start()
+                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
+                            p.join()
 
     # USER DEFINED ANNOTATION ###########################
     #####################################################
-    pool = multiprocessing.Pool(processes=nproc)
     # Annotate variants using user files. Output is located in output/Annotation/user.
     if not args.annot_bed and not args.annot_vcf:
         logger.info(
             YELLOW + BOLD + "Ommiting User Annotation, no BED or VCF files supplied" + END_FORMATTING)
     else:
         # CHANGE FOR RAW/FILTERED ANNOTATION
+        counter = 0
         for root, _, files in os.walk(out_variant_ivar_dir):
             if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
-                        pool.apply_async(annotate_user, args=(args, name, root, logger, output, sample))
-        pool.close()
-        pool.join() # wait until all process end
+                        p = multiprocessing.Process(target=annotate_user, args=(args, name, root, logger, output, sample))
+                        p.start()
+                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
+                            p.join()
 
     # USER AA DEFINED ANNOTATION ########################
     #####################################################
     # Annotate variants using user aa files. Output is located in output/Annotation/user_aa.
     # USER AA DEFINED
-    pool = multiprocessing.Pool(processes=nproc)
     if not args.annot_aa:
         logger.info(
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
-        
+        counter = 0
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
                     if name.endswith('.annot'):
-                        pool.apply_async(useraa_annotation, args=(name, logger, sample, output, root, args))
-        pool.close()
-        pool.join() # wait until all process end
+                        p = multiprocessing.Process(target=useraa_annotation, args=(name, logger, sample, output, root, args))
+                        p.start()
+                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
+                            p.join()
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
