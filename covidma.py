@@ -835,18 +835,14 @@ def map_sample(output, args, logger, r1_file, r2_file, sample_list_F, new_sample
 
 def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation):
 
-    counter = 0
     # Loop for paralellization
     for i in range(len(r1)):
         r1_file = r1[i]
         r2_file = r2[i]
         p = multiprocessing.Process(target=map_sample, args=(output, args, logger, r1_file, r2_file, sample_list_F, new_samples, reference))
         p.start()
-        if counter == 0 or counter == 2 or i == len(r1) - 1:
+        if i % 2 == 0 or i % 3 == 0 or i == len(r1) - 1:
             p.join()
-            if counter == 2:
-                counter = -1
-        counter += 1
  
     # Necessary variables
     sample = extract_sample(r1_file, r2_file)
