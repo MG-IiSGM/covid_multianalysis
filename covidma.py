@@ -487,7 +487,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     for i in range(len(r1)):
         r1_file = r1[i]
         r2_file = r2[i]
-        os.system("sbatch map_sample.sh %s %s %s %s %s %s %s %s %s"
+        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/map_sample.sh %s %s %s %s %s %s %s %s %s"
          %(output, r1_file, r2_file, output + "/" + "sample_list_F.txt", 
          output + "/" + "new_samples.txt", reference, "16", primers, annotation) )
         os.system('while [ "$(squeue | grep $USER | grep dpu | wc -l)" = "2" ]; do sleep 1; done')
