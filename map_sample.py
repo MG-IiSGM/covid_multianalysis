@@ -281,13 +281,13 @@ def map_sample(output, r1_file, r2_file, f_sample_list_F, f_new_samples, referen
     # list samples_list_F and new_samples
     sample_list_F = []
     f = open(f_sample_list_F, "r")
-    for s in sample_list_F:
+    for s in f:
         sample_list_F.append(s.strip())
     f.close()
 
     new_samples = []
     f = open(f_new_samples, "r")
-    for s in sample_list_F:
+    for s in f:
         new_samples.append(s.strip())
     f.close()
 
