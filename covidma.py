@@ -507,7 +507,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 for name in files:
                     if name.endswith('.tsv'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_user.sh %s %s %s %s %s %s" 
-                        %(name, root, output, sample, f_annot_vcf, f_annot_bed))
+                        %(name, root, output, sample, output + "/" + "annot_vcf.txt", output + "/" + "annot_bed.txt"))
                         os.system('while [ "$(squeue | grep $USER | grep dpu_user | wc -l)" = "96" ]; do sleep 0.1; done')
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_user" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
@@ -527,12 +527,12 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 for name in files:
                     if name.endswith('.annot'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s" 
-                        %(name, sample, output, root, f_annot_aa))
+                        %(name, sample, output, root, output + "/" + "annot_aa.txt"))
                         os.system('while [ "$(squeue | grep $USER | grep dpu_useraa | wc -l)" = "96" ]; do sleep 0.1; done')
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_useraa" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
-    os.system("rm %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
+    os.system("rm %s %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
