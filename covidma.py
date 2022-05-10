@@ -276,66 +276,6 @@ def set_folder_structure(output):
     out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
     check_create_dir(out_annot_user_aa_dir)
 
-def annotate_user(name, root, output, sample, f_annot_vcf, f_annot_bed):
-    """
-    Function that annotate variants from user files.
-
-    Output is located in Annotation/user.
-    """
-
-    # list annot_vcf
-    annot_vcf = []
-    f = open(f_annot_vcf, "r")
-    for s in f:
-        annot_vcf.append(s.strip())
-    f.close()
-
-    # list annot_bed
-    annot_bed = []
-    f = open(f_annot_bed, "r")
-    for s in f:
-        annot_bed.append(s.strip())
-    f.close()
-
-    out_annot_dir = os.path.join(output, "Annotation")          # folder
-    out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
-    sample = name.split('.')[0]
-    print('User bed/vcf annotation in sample {}'.format(sample))
-    filename = os.path.join(root, name)
-    out_annot_file = os.path.join(
-        out_annot_user_dir, sample + ".tsv")
-    # Perform user annotation
-    user_annotation(filename, out_annot_file, vcf_files=annot_vcf, bed_files=annot_bed)
-
-def useraa_annotation(name, sample, output, root, f_annot_aa):
-    """
-    Function that annotate variants from user aa files.
-
-    Output is located in Annotation/user_aa.
-    """
-
-    # list annot_vcf
-    annot_aa = []
-    f = open(f_annot_aa, "r")
-    for s in f:
-        annot_aa.append(s.strip())
-    f.close()
-
-    out_annot_dir = os.path.join(output, "Annotation")              # Folder
-    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
-    sample = name.split('.')[0]
-    print( 'User aa annotation in sample {}'.format(sample))
-    filename = os.path.join(root, name)
-    out_annot_aa_file = os.path.join(
-        out_annot_user_aa_dir, sample + ".tsv")
-    # Perform user annotation
-    if os.path.isfile(out_annot_aa_file):
-        user_annotation_aa(
-            out_annot_aa_file, out_annot_aa_file, aa_files=annot_aa)
-    else:
-        user_annotation_aa(
-            filename, out_annot_aa_file, aa_files=annot_aa)
-
 def pangolin_annot(output, logger, args):
     """
     Function that annotate consensus (Consensus/ivar) fasta files
@@ -548,7 +488,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                     if name.endswith('.tsv'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s" 
                         %(output, name, root, sample, snpeff_database))
-                        os.system('while [ "$(squeue | grep $USER | grep dpu_snpeff | wc -l)" = "100" ]; do sleep 0.1; done')
+                        os.system('while [ "$(squeue | grep $USER | grep dpu_snpeff | wc -l)" = "96" ]; do sleep 0.1; done')
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_snpeff" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
@@ -561,14 +501,15 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     else:
         # CHANGE FOR RAW/FILTERED ANNOTATION
         counter = 0
+        l = len([file for file in os.listdir(out_variant_ivar_dir) if file.endswith(".tsv")]) - 1
         for root, _, files in os.walk(out_variant_ivar_dir):
             if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
-                        p = multiprocessing.Process(target=annotate_user, args=(args, name, root, logger, output, sample))
-                        p.start()
-                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
-                            p.join()
+                        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_user.sh %s %s %s %s %s %s" 
+                        %(name, root, output, sample, f_annot_vcf, f_annot_bed))
+                        os.system('while [ "$(squeue | grep $USER | grep dpu_user | wc -l)" = "96" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_user" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     # USER AA DEFINED ANNOTATION ########################
@@ -580,15 +521,18 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
         counter = 0
+        l = len([file for file in os.listdir(out_annot_snpeff_dir) if file.endswith(".tsv")]) - 1
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
                     if name.endswith('.annot'):
-                        p = multiprocessing.Process(target=useraa_annotation, args=(name, logger, sample, output, root, args))
-                        p.start()
-                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
-                            p.join()
+                        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s" 
+                        %(name, sample, output, root, f_annot_aa))
+                        os.system('while [ "$(squeue | grep $USER | grep dpu_useraa | wc -l)" = "96" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_useraa" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
+
+    os.system("rm %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
