@@ -549,7 +549,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s" 
                         %(output, name, root, sample, snpeff_database))
                         os.system('while [ "$(squeue | grep $USER | grep dpu_snpeff | wc -l)" = "100" ]; do sleep 0.1; done')
-                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_snpeff" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     # USER DEFINED ANNOTATION ###########################
