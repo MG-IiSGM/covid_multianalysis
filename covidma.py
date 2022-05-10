@@ -205,9 +205,6 @@ def obtain_reads(args, logger):
 
 def set_folder_structure(output):
 
-    # output
-    check_create_dir(output)
-
     # output/Quality
     out_qc_dir = os.path.join(output, "Quality")
     check_create_dir(out_qc_dir)
@@ -279,71 +276,65 @@ def set_folder_structure(output):
     out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
     check_create_dir(out_annot_user_aa_dir)
 
-def snpeff_annotation(output, name, root, sample, logger, args):
-    """
-    Function that annotates variants using snpEff.
-
-    Annotations are stored in Annotation/snpeff.
-    """
-
-    out_annot_dir = os.path.join(output, "Annotation")              # Folder
-    out_annot_snpeff_dir = os.path.join(out_annot_dir, "snpeff")    # subfolder
-    sample = name.split('.')[0]                                     # sample
-    filename = os.path.join(root, name)                             # sample name
-    out_annot_file = os.path.join(out_annot_snpeff_dir, sample + ".annot")  # Absolute path file name
-
-    # Check if annotation has already been performed
-    # If True, annotation is skipped
-    if os.path.isfile(out_annot_file):
-        logger.info(YELLOW + DIM + out_annot_file +
-                    " EXIST\nOmmiting snpEff Annotation for sample " + sample + END_FORMATTING)
-    else:
-        logger.info(
-            GREEN + "Annotating sample with snpEff: " + sample + END_FORMATTING)
-        output_vcf = os.path.join(
-            out_annot_snpeff_dir, sample + '.vcf')
-        # Annotates variants using snpEff
-        annotate_snpeff(filename, output_vcf, out_annot_file, database=args.snpeff_database)
-
-def annotate_user(args, name, root, logger, output, sample):
+def annotate_user(name, root, output, sample, f_annot_vcf, f_annot_bed):
     """
     Function that annotate variants from user files.
 
     Output is located in Annotation/user.
     """
 
+    # list annot_vcf
+    annot_vcf = []
+    f = open(f_annot_vcf, "r")
+    for s in f:
+        annot_vcf.append(s.strip())
+    f.close()
+
+    # list annot_bed
+    annot_bed = []
+    f = open(f_annot_bed, "r")
+    for s in f:
+        annot_bed.append(s.strip())
+    f.close()
+
     out_annot_dir = os.path.join(output, "Annotation")          # folder
     out_annot_user_dir = os.path.join(out_annot_dir, "user")    # subfolder
     sample = name.split('.')[0]
-    logger.info(
-        'User bed/vcf annotation in sample {}'.format(sample))
+    print('User bed/vcf annotation in sample {}'.format(sample))
     filename = os.path.join(root, name)
     out_annot_file = os.path.join(
         out_annot_user_dir, sample + ".tsv")
     # Perform user annotation
-    user_annotation(filename, out_annot_file, vcf_files=args.annot_vcf, bed_files=args.annot_bed)
+    user_annotation(filename, out_annot_file, vcf_files=annot_vcf, bed_files=annot_bed)
 
-def useraa_annotation(name, logger, sample, output, root, args):
+def useraa_annotation(name, sample, output, root, f_annot_aa):
     """
     Function that annotate variants from user aa files.
 
     Output is located in Annotation/user_aa.
     """
+
+    # list annot_vcf
+    annot_aa = []
+    f = open(f_annot_aa, "r")
+    for s in f:
+        annot_aa.append(s.strip())
+    f.close()
+
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
     sample = name.split('.')[0]
-    logger.info(
-        'User aa annotation in sample {}'.format(sample))
+    print( 'User aa annotation in sample {}'.format(sample))
     filename = os.path.join(root, name)
     out_annot_aa_file = os.path.join(
         out_annot_user_aa_dir, sample + ".tsv")
     # Perform user annotation
     if os.path.isfile(out_annot_aa_file):
         user_annotation_aa(
-            out_annot_aa_file, out_annot_aa_file, aa_files=args.annot_aa)
+            out_annot_aa_file, out_annot_aa_file, aa_files=annot_aa)
     else:
         user_annotation_aa(
-            filename, out_annot_aa_file, aa_files=args.annot_aa)
+            filename, out_annot_aa_file, aa_files=annot_aa)
 
 def pangolin_annot(output, logger, args):
     """
@@ -503,6 +494,28 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
     out_annot_dir = os.path.join(output, "Annotation")              # Folder
     out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+    snpeff_database = args.snpeff_database
+
+    # create annot_vcf file
+    f_annot_vcf = open(output + "/" + "annot_vcf.txt", "w")
+    for s in args.annot_vcf:
+        to_write = s.strip() + "\n"
+        f_annot_vcf.write(to_write)
+    f_annot_vcf.close()
+
+    # create annot_aa file
+    f_annot_aa = open(output + "/" + "annot_aa.txt", "w")
+    for s in args.annot_aa:
+        to_write = s.strip() + "\n"
+        f_annot_aa.write(to_write)
+    f_annot_aa.close()
+
+    # create annot_bed file
+    f_annot_bed = open(output + "/" + "annot_bed.txt", "w")
+    for s in args.annot_bed:
+        to_write = s.strip() + "\n"
+        f_annot_bed.write(to_write)
+    f_annot_bed.close()
 
     # coverage OUTPUT SUMMARY
     ######################################################
@@ -514,10 +527,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     ######################################################
     logger.info(GREEN + "Creating overal summary report " + END_FORMATTING)
     # Output is located in output/Stats
-    try:
-        obtain_overal_stats(output, group_name)
-    except:
-        logger.info(YELLOW + "Overall Stats not computed " + END_FORMATTING)
+    obtain_overal_stats(output, group_name)
 
     #ANNOTATION WITH SNPEFF #############################
     #####################################################
@@ -531,14 +541,15 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     if args.snpeff_database:
         # CHANGE FOR RAW/FILTERED ANNOTATION
         counter = 0
+        l = len([file for file in os.listdir(out_filtered_ivar_dir) if file.endswith(".tsv")]) - 1
         for root, _, files in os.walk(out_filtered_ivar_dir):
             if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
-                        p = multiprocessing.Process(target=snpeff_annotation, args=(output, name, root, sample, logger, args))
-                        p.start()
-                        if counter%2 == 0 or counter%3 == 0 or counter == len(r1) - 1:
-                            p.join()
+                        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s" 
+                        %(output, name, root, sample, snpeff_database))
+                        os.system('while [ "$(squeue | grep $USER | grep dpu_snpeff | wc -l)" = "100" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     # USER DEFINED ANNOTATION ###########################
@@ -598,6 +609,7 @@ args = get_arguments()
 
 # Global variables
 output = os.path.abspath(args.output)               # Output path (argument)
+check_create_dir(output)
 group_name = output.split("/")[-1]                  # Group name (output folder name)
 reference = os.path.abspath(args.reference)         # Reference path (argument)
 annotation = os.path.abspath(args.annotation)       # Annotation path (argument)
