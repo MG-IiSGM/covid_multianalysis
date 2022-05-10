@@ -488,8 +488,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                     if name.endswith('.tsv'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s" 
                         %(output, name, root, sample, snpeff_database))
-                        os.system('while [ "$(squeue | grep $USER | grep dpu_snpeff | wc -l)" = "96" ]; do sleep 0.1; done')
-                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_snpeff" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
+                        os.system('while [ "$(squeue | grep $USER | grep "snpeff" | wc -l)" = "96" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "snpeff" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     # USER DEFINED ANNOTATION ###########################
@@ -508,8 +508,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                     if name.endswith('.tsv'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_user.sh %s %s %s %s %s %s" 
                         %(name, root, output, sample, output + "/" + "annot_vcf.txt", output + "/" + "annot_bed.txt"))
-                        os.system('while [ "$(squeue | grep $USER | grep dpu_user | wc -l)" = "96" ]; do sleep 0.1; done')
-                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_user" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
+                        os.system('while [ "$(squeue | grep $USER | grep "user" | wc -l)" = "96" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "user" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     # USER AA DEFINED ANNOTATION ########################
@@ -521,15 +521,15 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
             YELLOW + BOLD + "Ommiting User aa Annotation, no AA files supplied" + END_FORMATTING)
     else:
         counter = 0
-        l = len([file for file in os.listdir(out_annot_snpeff_dir) if file.endswith(".tsv")]) - 1
+        l = len([file for file in os.listdir(out_annot_snpeff_dir) if file.endswith(".annot")]) - 1
         for root, _, files in os.walk(out_annot_snpeff_dir):
             if root == out_annot_snpeff_dir:
                 for name in files:
                     if name.endswith('.annot'):
                         os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s" 
                         %(name, sample, output, root, output + "/" + "annot_aa.txt"))
-                        os.system('while [ "$(squeue | grep $USER | grep dpu_useraa | wc -l)" = "96" ]; do sleep 0.1; done')
-                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_useraa" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
+                        os.system('while [ "$(squeue | grep $USER | grep useraa | wc -l)" = "96" ]; do sleep 0.1; done')
+                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "useraa" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
     os.system("rm %s %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
