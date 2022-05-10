@@ -532,7 +532,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "dpu_useraa" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l))
                         counter += 1
 
-    os.system("rm %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
+    os.system("rm %s %s %s" %(output + "/" + "annot_vcf.txt", output + "/" + "annot_aa.txt", output + "/" + "annot_bed.txt"))
 
     #LINAGE WITH PANGOLIN ###############################
     #####################################################
