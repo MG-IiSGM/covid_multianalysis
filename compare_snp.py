@@ -15,6 +15,8 @@ import datetime
 import scipy.cluster.hierarchy as shc
 import scipy.spatial.distance as ssd  # pdist
 from pandarallel import pandarallel
+import warnings
+warnings.filterwarnings('ignore')
 
 logger = logging.getLogger()
 
@@ -144,6 +146,257 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
+def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, nproc=24):
+
+    # List to store number of process
+    l_process = []
+    # List to store tags to give each file
+    l_tags = [".tsv"]
+    while nproc // 2:
+        l_process.append(nproc)
+        l_tags.append("." + str(nproc))
+        nproc = nproc // 2
+
+    path = variant_dir
+
+    # Merge all tsv files
+    for index in range(len(l_process)):
+        old_tag = l_tags[index]
+        new_tag = l_tags[index + 1]
+        tsv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
+        f = open(out_compare_dir + "/tsv_files.txt", "w")
+        for tsv in tsv_files:
+            to_write = tsv + "\n"
+            f.write(to_write)
+        f.close()
+        parts = len(tsv_files) // l_process[index]
+
+        # Loop to create list of files to merge
+        for endex in range(l_process[index]):
+            if endex == 0:
+                start = 0
+                end = parts
+            elif endex == l_process[index] - 1:
+                start += parts
+                end = len(tsv_files)
+            else:
+                start += parts
+                end += parts
+            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s" 
+            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir))
+            os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
+            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
+        path = out_compare_dir
+
+    os.remove(out_compare_dir + "/tsv_files.txt")
+
+    # Last merge
+    tsv_files = [path + "/" + file for file in os.listdir(path) if file.endswith(new_tag)]
+    for i in range(len(tsv_files)):
+        if not i:
+            df = pd.read_csv(tsv_files[i], sep="\t")
+            continue
+        dfv = pd.read_csv(tsv_files[i], sep="\t")
+        df = df.merge(dfv, how="outer")
+
+    pandarallel.initialize()
+
+    min_freq_discard=0.1
+    def handle_lowfreq(x): return None if x <= min_freq_discard else x
+
+    df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
+                                                'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
+
+    df = df.round(2)
+    
+    df.iloc[:, 4:] = df.iloc[:, 4:].parallel_applymap(handle_lowfreq)
+    df['AllNaN'] = df.parallel_apply(lambda x: x[4:].isnull().values.all(), axis=1)
+    df = df[df.AllNaN == False]
+    df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
+
+    # print(df)
+    # df.to_csv("d2.df", index=False, sep="\t")
+    for i in tsv_files:
+        os.remove(i)
+    df.to_csv(out_compare_dir + "/original.or", index=False, sep="\t")
+    
+    # Loop to create csv files for each sample
+    samples = [c for c in df.columns if c not in ['REGION', 'POS', 'REF', 'ALT']]
+    f = open(out_compare_dir + "/samples.txt", "w")
+    for sample in samples:
+        to_write = sample + "\n"
+        f.write(to_write)
+    f.close()
+    parts = len(samples) // l_process[0]
+    for endex in range(l_process[0]):
+        if endex == 0:
+            start = 0
+            end = parts
+        elif endex == l_process[0] - 1:
+            start += parts
+            end = len(samples)
+        else:
+            start += parts
+            end += parts
+        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/create_csv.sh %s %s %s %s %s" 
+        %(out_compare_dir + "/original.or", out_compare_dir, out_compare_dir + "/samples.txt", str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "csv" | wc -l)" = "96" ]; do sleep 0.1; done')
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "csv" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+
+    os.remove(out_compare_dir + "/samples.txt")
+    os.remove(out_compare_dir + "/original.or")
+
+    # Extract low_freq
+    old_tag = ".csv"
+    csv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
+    f = open(out_compare_dir + "/csv_files.txt", "w")
+    for csv in csv_files:
+        to_write = csv + "\n"
+        f.write(to_write)
+    f.close()
+    parts = len(csv_files) // l_process[0]
+
+    # Loop to extract lowfreq
+    for endex in range(l_process[0]):
+        if endex == 0:
+            start = 0
+            end = parts
+        elif endex == l_process[0] - 1:
+            start += parts
+            end = len(csv_files)
+        else:
+            start += parts
+            end += parts
+        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_lowfreq.sh %s %s %s %s" 
+        %(out_compare_dir, out_compare_dir + "/csv_files.txt", str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "low_freq" | wc -l)" = "96" ]; do sleep 0.1; done')
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "low_freq" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+
+    os.remove(out_compare_dir + "/csv_files.txt")
+
+    indel_positions = df[(df['REF'].str.len() > 1) | (
+        df['ALT'].str.len() > 1)].POS.tolist()
+    indel_len = df[(df['REF'].str.len() > 1) | (
+        df['ALT'].str.len() > 1)].REF.tolist()
+    indel_len = [len(x) for x in indel_len]
+
+    indel_positions_final = []
+
+    for position, del_len in zip(indel_positions, indel_len):
+        indel_positions_final = indel_positions_final + \
+            [x for x in range(position - (5 + del_len),
+                            position + (5 + del_len))]
+
+    f = open(out_compare_dir + "/indel_positions_final.txt", "w")
+    for p in indel_positions_final:
+        to_write = str(p) + "\n"
+        f.write(to_write)
+    f.close()
+
+    # Loop to include uncovered
+    old_tag = ".slf"
+    slf_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
+    f = open(out_compare_dir + "/slf_files.txt", "w")
+    for slf in slf_files:
+        to_write = slf + "\n"
+        f.write(to_write)
+    f.close()
+    parts = len(slf_files) // l_process[0]
+
+    for endex in range(l_process[0]):
+        if endex == 0:
+            start = 0
+            end = parts
+        elif endex == l_process[0] - 1:
+            start += parts
+            end = len(slf_files)
+        else:
+            start += parts
+            end += parts
+        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_uncovered.sh %s %s %s %s %s" 
+        %(out_compare_dir, out_compare_dir + "/slf_files.txt", out_compare_dir + "/indel_positions_final.txt", str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "uncov" | wc -l)" = "96" ]; do sleep 0.1; done')
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "uncov" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+
+    os.remove(out_compare_dir + "/slf_files.txt")
+    os.remove(out_compare_dir + "/indel_positions_final.txt")
+
+    # Merge
+    l_tags[0] = ".uslf"
+    for index in range(len(l_process)):
+        old_tag = l_tags[index]
+        new_tag = l_tags[index + 1]
+
+        tsv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
+        f = open(out_compare_dir + "/tsv_files.txt", "w")
+        for tsv in tsv_files:
+            to_write = tsv + "\n"
+            f.write(to_write)
+        f.close()
+        parts = len(tsv_files) // l_process[index]
+
+        # Loop to create list of files to merge
+        for endex in range(l_process[index]):
+            if endex == 0:
+                start = 0
+                end = parts
+            elif endex == l_process[index] - 1:
+                start += parts
+                end = len(tsv_files)
+            else:
+                start += parts
+                end += parts
+            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s" 
+            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir))
+            os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
+            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
+
+    os.remove(out_compare_dir + "/tsv_files.txt")
+
+    # Last merge
+    tsv_files = [path + "/" + file for file in os.listdir(path) if file.endswith(new_tag)]
+    for i in range(len(tsv_files)):
+        if not i:
+            df = pd.read_csv(tsv_files[i], sep="\t")
+            continue
+        dfv = pd.read_csv(tsv_files[i], sep="\t")
+        df = df.merge(dfv, how="outer")
+
+    for i in tsv_files:
+        os.remove(i)
+
+    # Asign 0 to rest (Absent)
+    df = df.fillna(0)
+    # print(df)
+    # df.to_csv("d4.df", index=False, sep="\t")
+    # Determine N (will help in poorly covered determination)
+    def estract_sample_count(row):
+        count_list = [i not in ['!', 0, '0'] for i in row[4:]]
+        samples = np.array(df.columns[4:])
+        # samples[np.array(count_list)] filter array with True False array
+        return (sum(count_list), (',').join(samples[np.array(count_list)]))
+
+    if 'N' in df.columns:
+        df = df.drop(['N', 'Samples'], axis=1)
+    if 'Position' in df.columns:
+        df = df.drop('Position', axis=1)
+
+    df[['N', 'Samples']] = df.parallel_apply(
+        estract_sample_count, axis=1, result_type='expand')
+
+    df['Position'] = df.parallel_apply(lambda x: ('|').join(
+        [x['REGION'], x['REF'], str(x['POS']), x['ALT']]), axis=1)
+
+    df = df.drop(['REGION', 'REF', 'POS', 'ALT'], axis=1)
+
+    df = df[['Position', 'N', 'Samples'] +
+            [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
+    # print(df)
+    # df.to_csv("d5.df", index=False, sep="\t")
+    # exit(1)
+    return df
+
+
 
 def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
     pandarallel.initialize()
@@ -243,7 +496,7 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, mi
 
     df = df[['Position', 'N', 'Samples'] +
             [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
-
+    
     return df
 
 
@@ -1110,8 +1363,11 @@ if __name__ == '__main__':
             compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
-            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
-                input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate2(
+                output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
+                min_alt_dp=4, only_snp=True, nproc=96)
+            #recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
+            #    input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
