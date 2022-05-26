@@ -160,8 +160,12 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
     # Merge all tsv files
     path = variant_dir
     for index in range(len(l_process)):
+
+        # File extension
         old_tag = l_tags[index]
         new_tag = l_tags[index + 1]
+
+        # List of files
         tsv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
         f = open(out_compare_dir + "/tsv_files.txt", "w")
         for tsv in tsv_files:
@@ -181,8 +185,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             else:
                 start += parts
                 end += parts
-            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s" 
-            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp)))
+            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s" 
+            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
         path = out_compare_dir
@@ -201,10 +205,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         os.remove(tsv_files[i])
 
     pandarallel.initialize(nb_workers=96)
-
-    min_freq_discard=0.1
     def handle_lowfreq(x): return None if x <= min_freq_discard else x
-
     df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
                                                 'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
 
@@ -215,9 +216,10 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
     df = df[df.AllNaN == False]
     df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
 
+    # Store merged dataframe
     df.to_csv(out_compare_dir + "/original.or", index=False, sep="\t")
     
-    # Loop to create csv files for each sample
+    # File to store samples name each sample (column)
     samples = [c for c in df.columns if c not in ['REGION', 'POS', 'REF', 'ALT']]
     f = open(out_compare_dir + "/samples.txt", "w")
     for sample in samples:
@@ -232,6 +234,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         l_process.append(nproc)
         nproc = nproc // 2
 
+    # Loop to create csv files for each sample (column)
     parts = len(samples) // l_process[0]
     for endex in range(l_process[0]):
         if endex == 0:
@@ -358,8 +361,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             else:
                 start += parts
                 end += parts
-            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s" 
-            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir))
+            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s" 
+            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
 
@@ -378,8 +381,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
     # Asign 0 to rest (Absent)
     os.system("rm %s" %("slurm-*"))
-    df = df.fillna(0)
-
+    df.fillna(0, inplace=True)
 
     # Determine N (will help in poorly covered determination)
     def estract_sample_count(row):
@@ -1216,7 +1218,6 @@ def ddtb_compare(final_database, distance=0, indel=False):
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=1)
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=2)
 
-
 if __name__ == '__main__':
     args = get_arguments()
 
@@ -1253,8 +1254,6 @@ if __name__ == '__main__':
 
     group_compare = os.path.join(output_dir, group_name)
     compare_snp_matrix = group_compare + ".tsv"
-    print(output_dir)
-    print(group_compare)
 
     if args.only_compare == False:
         input_dir = os.path.abspath(args.input_dir)
