@@ -44,25 +44,6 @@ def import_tsv_variants(tsv_file, cov_path,  min_total_depth=4, min_alt_dp=4, on
         #                df_lowfreq, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
         return (df, df_lowfreq, df_uncover)
 
-# def import_tsv_variants(tsv_file,  min_total_depth=4, min_alt_dp=4, only_snp=True):
-#     base_file = os.path.basename(tsv_file)
-#     input_file = os.path.abspath(tsv_file)
-#     sample = base_file.split(".")[0]
-
-#     df = pd.read_csv(input_file, sep='\t')
-#     df = df.drop_duplicates(subset=['POS', 'REF', 'ALT'], keep="first")
-
-#     df = df[((df.TOTAL_DP >= min_total_depth) &
-#              (df.ALT_DP >= min_alt_dp))]
-
-#     df = df[['REGION', 'POS', 'REF', 'ALT', 'ALT_FREQ']]
-#     df = df.rename(columns={'ALT_FREQ': sample})
-#     if only_snp == True:
-#         df = df[~(df.ALT.str.startswith('+') | df.ALT.str.startswith('-'))]
-#         return df
-#     else:
-#         return df
-
 def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, out_compare_dir):
 
     c = 0

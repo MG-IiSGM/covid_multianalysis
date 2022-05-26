@@ -146,7 +146,7 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
-def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, nproc=24):
+def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, nproc=24):
 
     # List to store number of process
     l_process = []
@@ -195,9 +195,11 @@ def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_fr
     for i in range(len(tsv_files)):
         if not i:
             df = pd.read_csv(tsv_files[i], sep="\t")
+            os.remove(tsv_files[i])
             continue
         dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
+        os.remove(tsv_files[i])
 
     pandarallel.initialize()
 
@@ -214,10 +216,6 @@ def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_fr
     df = df[df.AllNaN == False]
     df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
 
-    # print(df)
-    # df.to_csv("d2.df", index=False, sep="\t")
-    for i in tsv_files:
-        os.remove(i)
     df.to_csv(out_compare_dir + "/original.or", index=False, sep="\t")
     
     # Loop to create csv files for each sample
@@ -227,6 +225,14 @@ def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_fr
         to_write = sample + "\n"
         f.write(to_write)
     f.close()
+
+    # List to store number of process
+    l_process = []
+    nproc = 32
+    while nproc // 2:
+        l_process.append(nproc)
+        nproc = nproc // 2
+
     parts = len(samples) // l_process[0]
     for endex in range(l_process[0]):
         if endex == 0:
@@ -254,6 +260,13 @@ def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_fr
         to_write = csv + "\n"
         f.write(to_write)
     f.close()
+
+    # List to store number of process
+    l_process = []
+    nproc = 96
+    while nproc // 2:
+        l_process.append(nproc)
+        nproc = nproc // 2
     parts = len(csv_files) // l_process[0]
 
     # Loop to extract lowfreq
@@ -358,119 +371,12 @@ def ddbb_create_intermediate2(out_compare_dir, variant_dir, coverage_dir, min_fr
     for i in range(len(tsv_files)):
         if not i:
             df = pd.read_csv(tsv_files[i], sep="\t")
+            os.remove(tsv_files[i])
             continue
         dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
+        os.remove(tsv_files[i])
 
-    for i in tsv_files:
-        os.remove(i)
-
-    # Asign 0 to rest (Absent)
-    df = df.fillna(0)
-    # print(df)
-    # df.to_csv("d4.df", index=False, sep="\t")
-    # Determine N (will help in poorly covered determination)
-    def estract_sample_count(row):
-        count_list = [i not in ['!', 0, '0'] for i in row[4:]]
-        samples = np.array(df.columns[4:])
-        # samples[np.array(count_list)] filter array with True False array
-        return (sum(count_list), (',').join(samples[np.array(count_list)]))
-
-    if 'N' in df.columns:
-        df = df.drop(['N', 'Samples'], axis=1)
-    if 'Position' in df.columns:
-        df = df.drop('Position', axis=1)
-
-    df[['N', 'Samples']] = df.parallel_apply(
-        estract_sample_count, axis=1, result_type='expand')
-
-    df['Position'] = df.parallel_apply(lambda x: ('|').join(
-        [x['REGION'], x['REF'], str(x['POS']), x['ALT']]), axis=1)
-
-    df = df.drop(['REGION', 'REF', 'POS', 'ALT'], axis=1)
-
-    df = df[['Position', 'N', 'Samples'] +
-            [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
-    # print(df)
-    # df.to_csv("d5.df", index=False, sep="\t")
-    # exit(1)
-    return df
-
-
-
-def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
-    pandarallel.initialize()
-    df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
-    # Merge all raw
-    for root, _, files in os.walk(variant_dir):
-        if root == variant_dir:
-            for name in files:
-                if name.endswith('.tsv'):
-                    logger.debug("Adding: " + name)
-                    filename = os.path.join(root, name)
-                    dfv = import_tsv_variants(filename, only_snp=only_snp)
-                    df = df.merge(dfv, how='outer')
-
-    # Round frequencies
-    df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
-                                               'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
-    # df.iloc[:, 4:] = df.iloc[:, 4:].apply(pd.to_numeric)
-    df = df.round(2)
-    # print(df)
-
-    #Remove <= 0.1 (parameter in function)
-    def handle_lowfreq(x): return None if x <= min_freq_discard else x
-    df.iloc[:, 4:] = df.iloc[:, 4:].parallel_applymap(handle_lowfreq)
-    # Drop all NaN rows
-    df['AllNaN'] = df.parallel_apply(lambda x: x[4:].isnull().values.all(), axis=1)
-    df = df[df.AllNaN == False]
-    df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
-
-    # Include poorly covered
-    for root, _, files in os.walk(variant_dir):
-        if root == variant_dir:
-            for name in files:
-                if name.endswith('.tsv'):
-                    filename = os.path.join(root, name)
-                    sample = name.split('.')[0]
-                    logger.debug("Adding lowfreqs: " + sample)
-                    dfl = extract_lowfreq(
-                        filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
-                    df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
-                        dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
-
-    indel_positions = df[(df['REF'].str.len() > 1) | (
-        df['ALT'].str.len() > 1)].POS.tolist()
-    indel_len = df[(df['REF'].str.len() > 1) | (
-        df['ALT'].str.len() > 1)].REF.tolist()
-    indel_len = [len(x) for x in indel_len]
-
-    indel_positions_final = []
-
-    for position, del_len in zip(indel_positions, indel_len):
-        indel_positions_final = indel_positions_final + \
-            [x for x in range(position - (5 + del_len),
-                              position + (5 + del_len))]
-
-    # Include uncovered
-    samples_coverage = df.columns.tolist()[4:]
-    for root, _, files in os.walk(coverage_dir):
-        for name in files:
-            if name.endswith('.cov'):
-                filename = os.path.join(root, name)
-                sample = name.split('.')[0]
-                if sample in df.columns[4:]:
-                    samples_coverage.remove(sample)
-                    logger.debug("Adding uncovered: " + sample)
-                    dfc = extract_uncovered(filename)
-                    dfc = dfc[~dfc.POS.isin(indel_positions_final)]
-                    #df.update(df[['REGION', 'POS']].merge(dfc, on=['REGION', 'POS'], how='left'))
-                    df[sample].update(df[['REGION', 'POS']].merge(
-                        dfc, on=['REGION', 'POS'], how='left')[sample])
-                    #df.combine_first(df[['REGION', 'POS']].merge(dfc, how='left'))
-    if len(samples_coverage) > 0:
-        logger.info("WARNING: " + (',').join(samples_coverage) +
-                    " coverage file not found")
     # Asign 0 to rest (Absent)
     df = df.fillna(0)
 
@@ -496,7 +402,7 @@ def ddbb_create_intermediate(variant_dir, coverage_dir, min_freq_discard=0.1, mi
 
     df = df[['Position', 'N', 'Samples'] +
             [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
-    
+
     return df
 
 
@@ -552,21 +458,18 @@ def remove_position_range(df):
     INDELs = df[df['Position'].str.contains(r'\|-[ATCG]+', regex=True)]
 
     bed_df = pd.DataFrame()
-    bed_df['#CHROM'] = INDELs['Position'].str.split('|').str[0]
     bed_df['start'] = INDELs['Position'].str.split(
         '|').str[2].astype('int') + 1
-    bed_df['length'] = INDELs['Position'].str.split(
-        r'\|-').str[1].str.len().astype('int')
     bed_df['end'] = INDELs['Position'].str.split('|').str[2].astype(
         'int') + INDELs['Position'].str.split(r'\|-').str[1].str.len().astype('int')
+    
+    l_positions = []
+    for s,e in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist()):
+        l_positions += list(range(s,e+1,1))
+    
+    df = df[~df["Position"].str.split("|").str[2].astype(int).isin(l_positions)]
 
-    for _, row in df.iterrows():
-        position_number = int(row.Position.split("|")[2])
-        if any(start <= position_number <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
-            #logger.info('Position: {} removed found in {}'.format(row.Position, df))
-            df = df[df.Position != row.Position]
     return df
-
 
 def import_VCF4_to_pandas(vcf_file, sep='\t'):
     header_lines = 0
@@ -1349,6 +1252,8 @@ if __name__ == '__main__':
 
     group_compare = os.path.join(output_dir, group_name)
     compare_snp_matrix = group_compare + ".tsv"
+    print(output_dir)
+    print(group_compare)
 
     if args.only_compare == False:
         input_dir = os.path.abspath(args.input_dir)
@@ -1363,26 +1268,23 @@ if __name__ == '__main__':
             compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
-            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate2(
+            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
                 output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
                 min_alt_dp=4, only_snp=True, nproc=96)
-            #recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
-            #    input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
             recalibrated_snp_matrix_intermediate.to_csv(
                 compare_snp_matrix_recal_intermediate, sep="\t", index=False)
-            compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
-                recalibrated_snp_matrix_intermediate)
+            compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(
                 compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
-                                                 min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                 min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_df.to_csv(
                 compare_snp_matrix_recal, sep="\t", index=False)
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
-                                                       min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                       min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(
                 compare_snp_matrix_INDEL, sep="\t", index=False)
 
