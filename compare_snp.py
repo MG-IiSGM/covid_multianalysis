@@ -157,9 +157,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         l_tags.append("." + str(nproc))
         nproc = nproc // 2
 
-    path = variant_dir
-
     # Merge all tsv files
+    path = variant_dir
     for index in range(len(l_process)):
         old_tag = l_tags[index]
         new_tag = l_tags[index + 1]
@@ -182,8 +181,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             else:
                 start += parts
                 end += parts
-            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s" 
-            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir))
+            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s" 
+            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp)))
             os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
         path = out_compare_dir
@@ -201,7 +200,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=96)
 
     min_freq_discard=0.1
     def handle_lowfreq(x): return None if x <= min_freq_discard else x
@@ -228,7 +227,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
     # List to store number of process
     l_process = []
-    nproc = 32
+    nproc = 50
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -378,7 +377,9 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         os.remove(tsv_files[i])
 
     # Asign 0 to rest (Absent)
+    os.system("rm %s" %("slurm-*"))
     df = df.fillna(0)
+
 
     # Determine N (will help in poorly covered determination)
     def estract_sample_count(row):
@@ -1270,7 +1271,7 @@ if __name__ == '__main__':
                 ".revised_INDEL_intermediate.tsv"
             recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
                 output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
-                min_alt_dp=4, only_snp=True, nproc=96)
+                min_alt_dp=4, only_snp=False, nproc=96)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
