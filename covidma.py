@@ -638,11 +638,21 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
             if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
-                        logger.info(GREEN + "Creating SNPEFF annotation " + name + END_FORMATTING)
-                        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s > jobid.batch" 
-                        %(name_s + "snf", output, name, root, sample, snpeff_database))
-                        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "96" ]; do sleep 0.1; done' %(name_s))
-                        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
+                        sample = name.split('.')[0]                                     # sample
+                        filename = os.path.join(root, name)                             # sample name
+                        out_annot_file = os.path.join(out_annot_snpeff_dir, sample + ".annot")  # Absolute path file name
+                        # Check if annotation has already been performed
+                        # If True, annotation is skipped
+                        if os.path.isfile(out_annot_file):
+                            print(out_annot_file +
+                                        " EXIST\nOmmiting snpEff Annotation for sample " + sample )
+                        else:
+                            logger.info(GREEN + "Creating SNPEFF annotation " + name + END_FORMATTING)
+                            # Annotates variants using snpEff
+                            os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s > jobid.batch" 
+                            %(name_s + "snf", output, name, root, sample, snpeff_database))
+                            os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "96" ]; do sleep 0.1; done' %(name_s))
+                            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                         counter += 1
 
     # USER DEFINED ANNOTATION ###########################
@@ -714,7 +724,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                             %(name_s + "pan", filename, out_annot_pangolin_dir, out_pangolin_filename, "2", "0.6"))
                             os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "50" ]; do sleep 0.1; done' %(name_s))
                             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
-                            counter += 1
+                        counter += 1
     os.remove("jobid.batch")
     os.system("rm %s" %("slurm-*"))
 
