@@ -17,7 +17,6 @@ def coverage_stats(output, sample, output_markdup_trimmed_file):
 
     out_stats_dir = os.path.join(output, "Stats")                                   # Folder
     out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")                # subfolder
-    out_coverage_name = sample + ".cov"                                             # Name output file
 
     # Compute coverage metrics using samtools
     create_coverage(output_markdup_trimmed_file,
