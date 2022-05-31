@@ -382,7 +382,7 @@ def snp_comparison(name_s, logger, output, group_name, out_variant_ivar_dir, out
     create_consensus(reference, compare_snp_matrix_recal,
                      out_stats_coverage_dir, out_consensus_dir)
 
-    logger.info("\n\n" + MAGENTA + BOLD + 
+    logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
         
 
