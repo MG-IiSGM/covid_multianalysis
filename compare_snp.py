@@ -1384,6 +1384,8 @@ if __name__ == '__main__':
         nproc = 8
     elif n_files > 50:
         nproc = 4
+    elif n_files > 30:
+        nproc = 2
     else:
         nproc = 1
 

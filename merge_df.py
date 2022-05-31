@@ -18,7 +18,8 @@ def import_tsv_variants(tsv_file, cov_path,  min_total_depth=4, min_alt_dp=4, on
     df_lowfreq = df[(df.ALT_DP < 4) &
             (df.ALT_FREQ >= 0.7)]
     
-    df_uncover = pd.read_csv(cov_path + "/" + sample + ".cov", sep="\t", header=None)
+    cov_file_name = os.path.join(cov_path, sample + ".cov")
+    df_uncover = pd.read_csv(cov_file_name, sep="\t", header=None)
     df_uncover.columns = ['REGION', 'POS', sample]
     df_uncover = df_uncover[df_uncover[sample] == 0]
     df_uncover = df_uncover.replace(0, '!')
@@ -53,13 +54,15 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
     for file in part:
 
         name_file = os.path.join(path, file)
+        lf_name_file = os.path.join(out_compare_dir, file.split(".")[0] + ".lf")
+        ucov_name_file = os.path.join(out_compare_dir, file.split(".")[0] + ".ucov")
 
         if not c and flag == 0:
             df, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
-                df_lowfreq.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".lf", index=False, sep="\t")
-            df_uncover.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".ucov", index=False, sep="\t")
+                df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
+            df_uncover.to_csv(ucov_name_file, index=False, sep="\t")
             c += 1
             continue
 
@@ -72,8 +75,8 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             dfv, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
-                df_lowfreq.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".lf", index=False, sep="\t")
-            df_uncover.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".ucov", index=False, sep="\t")
+                df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
+            df_uncover.to_csv(ucov_name_file, index=False, sep="\t")
             df = df.merge(dfv, how="outer")
 
         elif flag and file.endswith(old_tag):
@@ -81,8 +84,8 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             df = df.merge(dfv, how="outer")
         if old_tag != ".tsv":
             os.remove(name_file)
-
-    df.to_csv(out_compare_dir + "/" + "%i-%i%s" %(start, end, new_tag), index=False, sep='\t')
+    csv_name = os.path.join(out_compare_dir, "%i-%i%s" %(start, end, new_tag))
+    df.to_csv(csv_name, index=False, sep='\t')
 
 path = sys.argv[1]
 tsv_files_f = sys.argv[2]

@@ -340,6 +340,8 @@ def snp_comparison(name_s, logger, output, group_name, out_variant_ivar_dir, out
         nproc = 8
     elif n_files > 50:
         nproc = 4
+    elif n_files > 30:
+        nproc = 2
     else:
         nproc = 1
 
