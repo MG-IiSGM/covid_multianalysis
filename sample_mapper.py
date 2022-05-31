@@ -18,20 +18,10 @@ def check_quality(r1_file, r2_file, output, name_folder, sub_folder_name, thread
 
     # Set name files
     out_dir = os.path.join(output, name_folder)                                 # folder
-    out_name_r1 = r1_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r1 file name
-    out_name_r2 = r2_file.replace(".fastq.gz", "_fastqc.html").split("/")[-1]   # fastq_r2 file name
     out_subdir = os.path.join(out_dir, sub_folder_name)                         # subfolder
-    output_qc_file_r1 = os.path.join(out_subdir, out_name_r1)                   # absolute path r1
-    output_qc_file_r2 = os.path.join(out_subdir, out_name_r2)                   # absolute path r2
 
-    # Check if quality have been already computed
-    if os.path.isfile(output_qc_file_r1) and os.path.isfile(output_qc_file_r2):
-        print(output_qc_file_r1 + " EXIST\nOmmiting QC for sample " + sample)
-    else:
-        print("Checking quality in sample " + sample)
-        print("R1: " + r1_file + "\nR2: " + r2_file)
-        # Check quality with fastqc
-        fastqc_quality(r1_file, r2_file, out_subdir, threads)
+    # Check quality with fastqc
+    fastqc_quality(r1_file, r2_file, out_subdir, threads)
 
 def trim_read(r1_file, r2_file, sample, output, threads):
     """
@@ -48,15 +38,9 @@ def trim_read(r1_file, r2_file, sample, output, threads):
     output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)  # absolute path r1 filename
     output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)  # absolute path r2 filename
 
-    # Check if trimming has already been performed
-    if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
-        print(output_trimming_file_r1 +
-                    " EXIST\nOmmiting Trimming for sample " + sample)
-    else:
-        print("Trimming sample " + sample )
-        # Use fastp for trimming
-        fastp_trimming(r1_file, r2_file, sample, out_trim_dir, threads=threads, 
-            min_qual=20, window_size=10, min_len=35)
+    # Use fastp for trimming
+    fastp_trimming(r1_file, r2_file, sample, out_trim_dir, threads=threads, 
+        min_qual=20, window_size=10, min_len=35)
     
     # Return path of trimmed files
     return (output_trimming_file_r1, output_trimming_file_r2)
@@ -73,20 +57,12 @@ def mapping(output_trimming_file_r1, output_trimming_file_r2, sample, output, re
     out_map_name = sample + ".rg.sorted.bam"                        # file name
     output_map_file = os.path.join(out_map_dir, out_map_name)       # absolute path file name
 
-    # Check if mapping has already been performed
-    if os.path.isfile(output_map_file):
-        print(output_map_file +
-                    " EXIST\nOmmiting Mapping for sample " + sample )
-    else:
-        print("Mapping sample " + sample)
-        print("R1: " + output_trimming_file_r1 + "\nR2: " +
-                    output_trimming_file_r2 + "\nReference: " + reference)
         
-        # Mapping to reference using BWA. As output a sam file is created
-        bwa_mapping(output_trimming_file_r1, output_trimming_file_r2,
-                    reference, sample, out_map_dir, threads=threads)
-        # Converts sam file to bam file using samtools and sort alingments
-        sam_to_index_bam(sample, out_map_dir, output_trimming_file_r1, threads=threads)
+    # Mapping to reference using BWA. As output a sam file is created
+    bwa_mapping(output_trimming_file_r1, output_trimming_file_r2,
+                reference, sample, out_map_dir, threads=threads)
+    # Converts sam file to bam file using samtools and sort alingments
+    sam_to_index_bam(sample, out_map_dir, output_trimming_file_r1, threads=threads)
     
     # Return absolute path mapped file
     return (output_map_file)
@@ -103,20 +79,14 @@ def mark_duplicates(output_map_file, sample, output):
     out_markdup_name = sample + ".rg.markdup.sorted.bam"                # Filename
     output_markdup_file = os.path.join(out_map_dir, out_markdup_name)   # absolute path file name
 
-    # Check if mark duplicates has already been performed
-    if os.path.isfile(output_markdup_file):
-        print( output_markdup_file +
-                    " EXIST\nOmmiting Duplucate Mark for sample " + sample )
-    else:
-        print( "Marking Dupes in sample " + sample )
-        print("Input Bam: " + output_map_file)
-        # Mark and delete duplicates with picard tools
-        picard_markdup(output_map_file) 
+
+    # Mark and delete duplicates with picard tools
+    picard_markdup(output_map_file) 
     
     # Return absolute path marked and remove duplicates file
     return (output_markdup_file)
 
-def trim_ivar(output_markdup_trimmed_file, output_markdup_file, sample, primers):
+def trim_ivar(output_markdup_file, sample, primers):
     """
     Function that trim reamining primers of aligned reads using ivar.
     Then uses samtools to sort reads and create an index to access 
@@ -125,17 +95,9 @@ def trim_ivar(output_markdup_trimmed_file, output_markdup_file, sample, primers)
     Output is located in Bam directory.
     """
 
-    # Check if output_markdup_trimmed_file exits
-    # If True, trimming is not performed
-    if os.path.isfile(output_markdup_trimmed_file):
-        print( output_markdup_trimmed_file +
-                    " EXIST\nOmmiting Duplucate Mark for sample " + sample )
-    else:
-        print( "Trimming primers in sample " + sample )
-        print("Input Bam: " + output_markdup_file)
-        # Trimming of remaining primers is performed with ivar
-        ivar_trim(output_markdup_file, primers, sample,
-                    min_length=30, min_quality=20, sliding_window_width=4)
+    # Trimming of remaining primers is performed with ivar
+    ivar_trim(output_markdup_file, primers, sample,
+                min_length=30, min_quality=20, sliding_window_width=4)
 
 
 def sample_mapper(output, r1_file, r2_file, sample, reference, threads, primers):
@@ -145,10 +107,6 @@ def sample_mapper(output, r1_file, r2_file, sample, reference, threads, primers)
 
     # INPUT ARGUMENTS
     ################
-    out_map_dir = os.path.join(output, "Bam")
-    out_markdup_trimmed_name = sample + ".rg.markdup.trimmed.sorted.bam"
-    output_markdup_trimmed_file = os.path.join(
-                out_map_dir, out_markdup_trimmed_name)
     check_file_exists(r1_file)
     check_file_exists(r2_file)
 
@@ -182,7 +140,7 @@ def sample_mapper(output, r1_file, r2_file, sample, reference, threads, primers)
     #TRIM PRIMERS WITH ivar trim ########################
     #####################################################
     # Trim aligned reads (bam file) using ivar. Output file is in output/Bam.
-    trim_ivar(output_markdup_trimmed_file, output_markdup_file, sample, primers)
+    trim_ivar(output_markdup_file, sample, primers)
 
 # Input variables
 output = sys.argv[1]

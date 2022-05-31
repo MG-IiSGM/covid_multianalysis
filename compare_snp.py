@@ -41,6 +41,8 @@ def get_arguments():
 
     parser.add_argument('-i', '--input', dest="input_dir", metavar="input_directory",
                         type=str, required=False, help='REQUIRED.Input directory containing all vcf files')
+    parser.add_argument('-name', '--name', dest="name_sbatch", metavar="name sbatch",
+                                type=str, required=True, help='REQUIRED.Name for sbatch. It must contain 3 letters, if not, the first three letters are considered')
     parser.add_argument('-s', '--sample_list', default=False, required=False,
                         help='File with sample names to analyse instead of all samples')
     parser.add_argument('-d', '--distance', default=0, required=False,
@@ -146,12 +148,114 @@ def extract_uncovered(cov_file, min_total_depth=4):
     df = df.replace(0, '!')
     return df
 
-def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, nproc=24):
+def ddbb_create_intermediate_ori(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
+    pandarallel.initialize()
+    df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
+    # Merge all raw
+    for root, _, files in os.walk(variant_dir):
+        if root == variant_dir:
+            for name in files:
+                if name.endswith('.tsv'):
+                    logger.debug("Adding: " + name)
+                    filename = os.path.join(root, name)
+                    dfv = import_tsv_variants(filename, only_snp=only_snp)
+                    df = df.merge(dfv, how='outer')
+
+    # Round frequencies
+    df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
+                                               'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
+    # df.iloc[:, 4:] = df.iloc[:, 4:].apply(pd.to_numeric)
+    df = df.round(2)
+    # print(df)
+
+    #Remove <= 0.1 (parameter in function)
+    def handle_lowfreq(x): return None if x <= min_freq_discard else x
+    df.iloc[:, 4:] = df.iloc[:, 4:].parallel_applymap(handle_lowfreq)
+    # Drop all NaN rows
+    df['AllNaN'] = df.parallel_apply(lambda x: x[4:].isnull().values.all(), axis=1)
+    df = df[df.AllNaN == False]
+    df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
+
+    # Include poorly covered
+    for root, _, files in os.walk(variant_dir):
+        if root == variant_dir:
+            for name in files:
+                if name.endswith('.tsv'):
+                    filename = os.path.join(root, name)
+                    sample = name.split('.')[0]
+                    logger.debug("Adding lowfreqs: " + sample)
+                    dfl = extract_lowfreq(
+                        filename, min_total_depth=4, min_alt_dp=4, only_snp=only_snp)
+                    df[sample].update(df[['REGION', 'POS', 'REF', 'ALT']].merge(
+                        dfl, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
+
+    indel_positions = df[(df['REF'].str.len() > 1) | (
+        df['ALT'].str.len() > 1)].POS.tolist()
+    indel_len = df[(df['REF'].str.len() > 1) | (
+        df['ALT'].str.len() > 1)].REF.tolist()
+    indel_len = [len(x) for x in indel_len]
+
+    indel_positions_final = []
+
+    for position, del_len in zip(indel_positions, indel_len):
+        indel_positions_final = indel_positions_final + \
+            [x for x in range(position - (5 + del_len),
+                              position + (5 + del_len))]
+
+    # Include uncovered
+    samples_coverage = df.columns.tolist()[4:]
+    for root, _, files in os.walk(coverage_dir):
+        for name in files:
+            if name.endswith('.cov'):
+                filename = os.path.join(root, name)
+                sample = name.split('.')[0]
+                if sample in df.columns[4:]:
+                    samples_coverage.remove(sample)
+                    logger.debug("Adding uncovered: " + sample)
+                    dfc = extract_uncovered(filename)
+                    dfc = dfc[~dfc.POS.isin(indel_positions_final)]
+                    #df.update(df[['REGION', 'POS']].merge(dfc, on=['REGION', 'POS'], how='left'))
+                    df[sample].update(df[['REGION', 'POS']].merge(
+                        dfc, on=['REGION', 'POS'], how='left')[sample])
+                    #df.combine_first(df[['REGION', 'POS']].merge(dfc, how='left'))
+    if len(samples_coverage) > 0:
+        logger.info("WARNING: " + (',').join(samples_coverage) +
+                    " coverage file not found")
+    # Asign 0 to rest (Absent)
+    df = df.fillna(0)
+
+    # Determine N (will help in poorly covered determination)
+    def estract_sample_count(row):
+        count_list = [i not in ['!', 0, '0'] for i in row[4:]]
+        samples = np.array(df.columns[4:])
+        # samples[np.array(count_list)] filter array with True False array
+        return (sum(count_list), (',').join(samples[np.array(count_list)]))
+
+    if 'N' in df.columns:
+        df = df.drop(['N', 'Samples'], axis=1)
+    if 'Position' in df.columns:
+        df = df.drop('Position', axis=1)
+
+    df[['N', 'Samples']] = df.parallel_apply(
+        estract_sample_count, axis=1, result_type='expand')
+
+    df['Position'] = df.parallel_apply(lambda x: ('|').join(
+        [x['REGION'], x['REF'], str(x['POS']), x['ALT']]), axis=1)
+
+    df = df.drop(['REGION', 'REF', 'POS', 'ALT'], axis=1)
+
+    df = df[['Position', 'N', 'Samples'] +
+            [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
+
+    return df
+
+def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True, nproc=24):
 
     # List to store number of process
     l_process = []
     # List to store tags to give each file
     l_tags = [".tsv"]
+    nproc_cpy = nproc
     while nproc // 2:
         l_process.append(nproc)
         l_tags.append("." + str(nproc))
@@ -167,7 +271,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
         # List of files
         tsv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
-        f = open(out_compare_dir + "/tsv_files.txt", "w")
+        tsv_file_name = os.path.join(out_compare_dir, "tsv_files.txt")
+        f = open(tsv_file_name, "w")
         for tsv in tsv_files:
             to_write = tsv + "\n"
             f.write(to_write)
@@ -185,16 +290,16 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             else:
                 start += parts
                 end += parts
-            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s" 
-            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
-            os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
-            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
+            os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            %(name_s + "mg", path, tsv_file_name, str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
+            os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
         path = out_compare_dir
 
-    os.remove(out_compare_dir + "/tsv_files.txt")
+    os.remove(tsv_file_name)
 
     # Last merge
-    tsv_files = [path + "/" + file for file in os.listdir(path) if file.endswith(new_tag)]
+    tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
             df = pd.read_csv(tsv_files[i], sep="\t")
@@ -217,11 +322,13 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
     df = df.drop(['AllNaN'], axis=1).reset_index(drop=True)
 
     # Store merged dataframe
-    df.to_csv(out_compare_dir + "/original.or", index=False, sep="\t")
+    name_or = os.path.join(out_compare_dir, "original.or")
+    df.to_csv(name_or, index=False, sep="\t")
     
     # File to store samples name each sample (column)
     samples = [c for c in df.columns if c not in ['REGION', 'POS', 'REF', 'ALT']]
-    f = open(out_compare_dir + "/samples.txt", "w")
+    samples_name_file = os.path.join(out_compare_dir, "samples.txt")
+    f = open(samples_name_file, "w")
     for sample in samples:
         to_write = sample + "\n"
         f.write(to_write)
@@ -229,7 +336,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
     # List to store number of process
     l_process = []
-    nproc = 50
+    nproc = nproc_cpy // 2
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -246,18 +353,19 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         else:
             start += parts
             end += parts
-        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/create_csv.sh %s %s %s %s %s" 
-        %(out_compare_dir + "/original.or", out_compare_dir, out_compare_dir + "/samples.txt", str(start), str(end)))
-        os.system('while [ "$(squeue | grep $USER | grep "csv" | wc -l)" = "96" ]; do sleep 0.1; done')
-        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "csv" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/create_csv.sh %s %s %s %s %s > jobid.batch" 
+        %(name_s + "csv", name_or, out_compare_dir, samples_name_file, str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
 
-    os.remove(out_compare_dir + "/samples.txt")
-    os.remove(out_compare_dir + "/original.or")
+    os.remove(samples_name_file)
+    os.remove(name_or)
 
     # Extract low_freq
     old_tag = ".csv"
     csv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
-    f = open(out_compare_dir + "/csv_files.txt", "w")
+    name_csv_file = os.path.join(out_compare_dir, "csv_files.txt")
+    f = open(name_csv_file, "w")
     for csv in csv_files:
         to_write = csv + "\n"
         f.write(to_write)
@@ -265,7 +373,7 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
     # List to store number of process
     l_process = []
-    nproc = 96
+    nproc = nproc_cpy
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -282,12 +390,12 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         else:
             start += parts
             end += parts
-        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_lowfreq.sh %s %s %s %s" 
-        %(out_compare_dir, out_compare_dir + "/csv_files.txt", str(start), str(end)))
-        os.system('while [ "$(squeue | grep $USER | grep "low_freq" | wc -l)" = "96" ]; do sleep 0.1; done')
-        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "low_freq" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_lowfreq.sh %s %s %s %s > jobid.batch" 
+        %(name_s + "lf", out_compare_dir, name_csv_file, str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
 
-    os.remove(out_compare_dir + "/csv_files.txt")
+    os.remove(name_csv_file)
 
     indel_positions = df[(df['REF'].str.len() > 1) | (
         df['ALT'].str.len() > 1)].POS.tolist()
@@ -302,7 +410,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             [x for x in range(position - (5 + del_len),
                             position + (5 + del_len))]
 
-    f = open(out_compare_dir + "/indel_positions_final.txt", "w")
+    indel_name_file = os.path.join(out_compare_dir, "indel_positions_final.txt")
+    f = open(indel_name_file, "w")
     for p in indel_positions_final:
         to_write = str(p) + "\n"
         f.write(to_write)
@@ -311,7 +420,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
     # Loop to include uncovered
     old_tag = ".slf"
     slf_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
-    f = open(out_compare_dir + "/slf_files.txt", "w")
+    slf_name_file = os.path.join(out_compare_dir, "slf_files.txt")
+    f = open(slf_name_file, "w")
     for slf in slf_files:
         to_write = slf + "\n"
         f.write(to_write)
@@ -328,13 +438,13 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         else:
             start += parts
             end += parts
-        os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_uncovered.sh %s %s %s %s %s" 
-        %(out_compare_dir, out_compare_dir + "/slf_files.txt", out_compare_dir + "/indel_positions_final.txt", str(start), str(end)))
-        os.system('while [ "$(squeue | grep $USER | grep "uncov" | wc -l)" = "96" ]; do sleep 0.1; done')
-        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "uncov" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1)))
+        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_uncovered.sh %s %s %s %s %s > jobid.batch" 
+        %(name_s + "uc", out_compare_dir, slf_name_file, indel_name_file, str(start), str(end)))
+        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+        os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
 
-    os.remove(out_compare_dir + "/slf_files.txt")
-    os.remove(out_compare_dir + "/indel_positions_final.txt")
+    os.remove(slf_name_file)
+    os.remove(indel_name_file)
 
     # Merge
     l_tags[0] = ".uslf"
@@ -343,7 +453,8 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
         new_tag = l_tags[index + 1]
 
         tsv_files = [file for file in os.listdir(path) if file.endswith(old_tag)]
-        f = open(out_compare_dir + "/tsv_files.txt", "w")
+        tsv_name_file = os.path.join(out_compare_dir + "tsv_files.txt")
+        f = open(tsv_name_file, "w")
         for tsv in tsv_files:
             to_write = tsv + "\n"
             f.write(to_write)
@@ -361,12 +472,12 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
             else:
                 start += parts
                 end += parts
-            os.system("sbatch /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s" 
-            %(path, out_compare_dir + "/tsv_files.txt", str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
-            os.system('while [ "$(squeue | grep $USER | grep "merge_df" | wc -l)" = "96" ]; do sleep 0.1; done')
-            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "merge_df" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1)))
+            os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            %(name_s + "mg", path, tsv_name_file, str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
+            os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+            os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
 
-    os.remove(out_compare_dir + "/tsv_files.txt")
+    os.remove(tsv_name_file)
 
     # Last merge
     tsv_files = [path + "/" + file for file in os.listdir(path) if file.endswith(new_tag)]
@@ -405,6 +516,9 @@ def ddbb_create_intermediate(out_compare_dir, variant_dir, coverage_dir, min_fre
 
     df = df[['Position', 'N', 'Samples'] +
             [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
+    
+    if os.path.exists("jobid.batch"):
+                os.remove("jobid.batch")
 
     return df
 
@@ -1224,6 +1338,7 @@ if __name__ == '__main__':
     output_dir = os.path.abspath(args.output)
     group_name = output_dir.split('/')[-1]
     check_create_dir(output_dir)
+    name_s = args.name_sbatch[:3] 
     # LOGGING
     # Create log file with date and time
     right_now = str(datetime.datetime.now())
@@ -1255,6 +1370,23 @@ if __name__ == '__main__':
     group_compare = os.path.join(output_dir, group_name)
     compare_snp_matrix = group_compare + ".tsv"
 
+    # Get number proc
+    n_files = len([f for f in os.listdir(args.input_dir) if f.endswith(".tsv")])
+    if n_files > 6000:
+        nproc = 96
+    elif n_files > 4000:
+        nproc = 64
+    elif n_files > 2000:
+        nproc = 32
+    elif n_files > 500:
+        nproc = 16
+    elif n_files > 100:
+        nproc = 8
+    elif n_files > 50:
+        nproc = 4
+    else:
+        nproc = 1
+
     if args.only_compare == False:
         input_dir = os.path.abspath(args.input_dir)
 
@@ -1268,9 +1400,9 @@ if __name__ == '__main__':
             compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
-            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
+            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(name_s,
                 output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
-                min_alt_dp=4, only_snp=False, nproc=96)
+                min_alt_dp=4, only_snp=False, nproc=nproc)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
@@ -1280,11 +1412,11 @@ if __name__ == '__main__':
             compare_snp_matrix_INDEL_intermediate_df.to_csv(
                 compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
-                                                 min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                 min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_df.to_csv(
                 compare_snp_matrix_recal, sep="\t", index=False)
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
-                                                       min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                       min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(
                 compare_snp_matrix_INDEL, sep="\t", index=False)
 

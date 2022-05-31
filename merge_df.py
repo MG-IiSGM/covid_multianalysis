@@ -52,8 +52,10 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
     part = tsv_files[start:end]
     for file in part:
 
+        name_file = os.path.join(path, file)
+
         if not c and flag == 0:
-            df, df_lowfreq, df_uncover = import_tsv_variants(path + "/" + file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
+            df, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
                 df_lowfreq.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".lf", index=False, sep="\t")
@@ -62,12 +64,12 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             continue
 
         elif not c and flag:
-            df = pd.read_csv(path + "/" + file, sep="\t")
+            df = pd.read_csv(name_file, sep="\t")
             c += 1
             continue
 
         if flag == 0 and file.endswith(old_tag):
-            dfv, df_lowfreq, df_uncover = import_tsv_variants(path + "/" + file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
+            dfv, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
                 df_lowfreq.to_csv(out_compare_dir + "/" + file.split(".")[0] + ".lf", index=False, sep="\t")
@@ -75,15 +77,13 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             df = df.merge(dfv, how="outer")
 
         elif flag and file.endswith(old_tag):
-            dfv = pd.read_csv(path + "/" + file, sep = "\t")
+            dfv = pd.read_csv(name_file, sep = "\t")
             df = df.merge(dfv, how="outer")
+        if old_tag != ".tsv":
+            os.remove(name_file)
 
     df.to_csv(out_compare_dir + "/" + "%i-%i%s" %(start, end, new_tag), index=False, sep='\t')
-    if old_tag != ".tsv":
-        for t in part:
-            os.system("rm %s" %(path + "/" + t))
 
-print(sys.argv)
 path = sys.argv[1]
 tsv_files_f = sys.argv[2]
 start = int(sys.argv[3])
