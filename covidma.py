@@ -641,7 +641,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         logger.info(GREEN + "Creating SNPEFF annotation " + name + END_FORMATTING)
                         os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s > jobid.batch" 
                         %(name_s + "snf", output, name, root, sample, snpeff_database))
-                        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+                        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "96" ]; do sleep 0.1; done' %(name_s))
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                         counter += 1
 
@@ -662,7 +662,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         logger.info(GREEN + "Creating User annotation " + name + END_FORMATTING)
                         os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_user.sh %s %s %s %s %s > jobid.batch" 
                         %(name_s + "use", root, output, sample, output + "/" + "annot_vcf.txt", output + "/" + "annot_bed.txt"))
-                        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+                        os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "96" ]; do sleep 0.1; done' %(name_s))
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                         counter += 1
 
@@ -683,7 +683,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         logger.info(GREEN + "Creating User aa annotation " + name + END_FORMATTING)
                         os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s > jobid.batch" 
                         %(name_s + "aa", name, sample, output, root, output + "/" + "annot_aa.txt"))
-                        os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
+                        os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "96" ]; do sleep 0.1; done' %(name_s))
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                         counter += 1
 
@@ -712,7 +712,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                             # Annotate variants with pangolin to obtain the linage
                             os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_pangolin.sh %s %s %s %s %s > jobid.batch" 
                             %(name_s + "pan", filename, out_annot_pangolin_dir, out_pangolin_filename, "2", "0.6"))
-                            os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" = "50" ]; do sleep 0.1; done' %(name_s))
+                            os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "50" ]; do sleep 0.1; done' %(name_s))
                             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                             counter += 1
     os.remove("jobid.batch")
