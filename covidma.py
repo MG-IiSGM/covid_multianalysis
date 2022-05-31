@@ -597,13 +597,13 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                             %(name_s + "6", jobid, output, sample, output_markdup_trimmed_file))
                     else:
                         os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/coverage_stats.sh %s %s %s > jobid.batch" 
-                            %(name_s + "6", output, output, sample, output_markdup_trimmed_file))
+                            %(name_s + "6", output, sample, output_markdup_trimmed_file))
                             
                 if os.path.exists("jobid.batch"):
                     os.remove("jobid.batch")
                 
-                # CHECK PARALELL
-                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "36" ]; do sleep 0.1; done' %(name_s))
+                # CHECK PARALELL (6)
+                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "12" ]; do sleep 0.1; done' %(name_s))
                 os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                 counter += 1
         os.system('while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done' %(name_s))
