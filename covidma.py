@@ -301,7 +301,7 @@ def user_aa_to_html(out_annot_user_aa_dir, group_name):
     with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
         f.write(report_samples_html_all)
 
-def snp_comparison(name_s, logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir):
+def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir):
     """
     Function that performs SNP comparison. As output is obtained a 
     pairwise distance matrix and dendrogram. 
@@ -479,11 +479,11 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 out_ivar_variant_name = sample + ".tsv"
                 out_ivar_variant_file = os.path.join(
                     out_variant_ivar_dir, out_ivar_variant_name)
-                if os.path.isfile(out_ivar_variant_file) and os.stat(out_ivar_variant_file).st_size > 140:
+                if os.path.isfile(out_ivar_variant_file) and os.stat(out_ivar_variant_file).st_size > 139:
                     logger.info(YELLOW + DIM + out_ivar_variant_file +
                                 " EXIST\nOmmiting Variant call for  sample " + sample + END_FORMATTING)
                 else:
-                    if os.path.isfile(out_ivar_variant_file) and os.stat(out_ivar_variant_file).st_size:
+                    if os.path.isfile(out_ivar_variant_file) and os.stat(out_ivar_variant_file).st_size == 139:
                         os.remove(out_ivar_variant_file)
                     logger.info(
                         GREEN + "Calling variants with ivar in sample " + sample + END_FORMATTING)
@@ -503,11 +503,11 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 #####################################################
                 out_ivar_filtered_file = os.path.join(
                     out_filtered_ivar_dir, out_ivar_variant_name)
-                if os.path.isfile(out_ivar_filtered_file) and os.stat(out_ivar_filtered_file).st_size > 140:
+                if os.path.isfile(out_ivar_filtered_file) and os.stat(out_ivar_filtered_file).st_size > 139:
                     logger.info(YELLOW + DIM + out_ivar_filtered_file +
                                 " EXIST\nOmmiting Variant filtering for  sample " + sample + END_FORMATTING)
                 else:
-                    if os.path.isfile(out_ivar_filtered_file) and os.stat(out_ivar_filtered_file).st_size:
+                    if os.path.isfile(out_ivar_filtered_file) and os.stat(out_ivar_filtered_file).st_size == 139:
                         os.remove(out_ivar_filtered_file)
                     logger.info(GREEN + "Filtering variants in sample " +
                                 sample + END_FORMATTING)
@@ -603,7 +603,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                     os.remove("jobid.batch")
                 
                 # CHECK PARALELL
-                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "60" ]; do sleep 0.1; done' %(name_s))
+                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "36" ]; do sleep 0.1; done' %(name_s))
                 os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
                 counter += 1
         os.system('while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done' %(name_s))
@@ -734,7 +734,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
 
     # SNP COMPARISON using tsv variant files
     ######################################################
-    snp_comparison(name_s, logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir)
+    snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_dir, out_stats_coverage_dir)
 
 # Parse arguments
 args = get_arguments()
