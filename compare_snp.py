@@ -480,7 +480,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     os.remove(tsv_name_file)
 
     # Last merge
-    tsv_files = [path + "/" + file for file in os.listdir(path) if file.endswith(new_tag)]
+    tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
             df = pd.read_csv(tsv_files[i], sep="\t")

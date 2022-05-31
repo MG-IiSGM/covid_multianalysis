@@ -391,13 +391,16 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     # Loop for paralellization
     name_s = args.name_sbatch[:3]      # name sbatch
     l = len(r1) - 1
+
+    # Loop to fix posible problems
     for time in range(3):
         counter = 0
         new_sample_number = 0
+
         for i in range(len(r1)):
             r1_file = r1[i]
             r2_file = r2[i]
-
+            
             # Extract sample name
             sample = extract_sample(r1_file, r2_file)
             args.sample = sample
