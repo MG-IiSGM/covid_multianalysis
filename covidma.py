@@ -24,7 +24,7 @@ from bam_variant import picard_dictionary, samtools_faidx, picard_markdup, ivar_
 from vcf_process import filter_tsv_variants
 from annotation import annotate_snpeff, annotate_pangolin, user_annotation, user_annotation_aa, annotation_to_html, \
     report_samples_html
-from compare_snp import ddtb_add, ddtb_compare, ddbb_create_intermediate, revised_df, remove_position_range
+from compare_snp import ddtb_add, ddtb_compare, ddbb_create_intermediate, ddbb_create_intermediate_ori, revised_df, remove_position_range
 
 """
 =============================================================
@@ -81,6 +81,8 @@ def main():
 
         input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory",
                                  type=str, required=True, help='REQUIRED.Input directory containing all fast[aq] files')
+        input_group.add_argument('-name', '--name', dest="name_sbatch", metavar="name sbatch",
+                                type=str, required=True, help='REQUIRED.Name for sbatch. It must contain 3 letters, if not, the first three letters are considered')
         input_group.add_argument('-r', '--reference', metavar="reference",
                                  type=str, required=True, help='REQUIRED. File to map against')
         input_group.add_argument('-a', '--annotation', metavar="annotation",
@@ -151,6 +153,7 @@ def main():
     group_name = output.split("/")[-1]
     reference = os.path.abspath(args.reference)
     annotation = os.path.abspath(args.annotation)
+    name_s = args.name_sbatch[:3]      # name sbatch
 
     # LOGGING
     # Create log file with date and time
@@ -645,8 +648,38 @@ def main():
     compare_snp_matrix_recal_intermediate = full_path_compare + ".revised_intermediate.tsv"
     compare_snp_matrix_INDEL_intermediate = full_path_compare + \
         ".revised_INDEL_intermediate.tsv"
-    recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
+
+    # Get number proc
+    n_files = len([f for f in os.listdir(out_variant_ivar_dir) if f.endswith(".tsv")])
+    if n_files > 6000:
+        nproc = 96
+    elif n_files > 4000:
+        nproc = 64
+    elif n_files > 2000:
+        nproc = 32
+    elif n_files > 500:
+        nproc = 16
+    elif n_files > 100:
+        nproc = 8
+    elif n_files > 50:
+        nproc = 4
+    elif n_files > 30:
+        nproc = 2
+    else:
+        nproc = 1
+
+    if nproc > 1:
+        logger.info("\n\n" + "USING: " +
+                str(nproc) + " cores" + "\n")
+        recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(name_s, 
+                path_compare, out_variant_ivar_dir, out_stats_coverage_dir, min_freq_discard=0.1, 
+                min_alt_dp=4, only_snp=False, nproc=nproc)
+    else:
+        logger.info("\n\n" + "USING: " +
+                str(nproc) + " core" + "\n")
+        recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(
         out_variant_ivar_dir, out_stats_coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+
     recalibrated_snp_matrix_intermediate.to_csv(
         compare_snp_matrix_recal_intermediate, sep="\t", index=False)
     compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
