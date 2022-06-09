@@ -492,20 +492,21 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # Asign 0 to rest (Absent)
     os.system("rm %s" %("slurm-*"))
+    if os.path.exists("jobid.batch"):
+                os.remove("jobid.batch")
     df.fillna(0, inplace=True)
 
     # Determine N (will help in poorly covered determination)
     def estract_sample_count(row):
         count_list = [i not in ['!', 0, '0'] for i in row[4:]]
-        samples = np.array(df.columns[4:])
-        # samples[np.array(count_list)] filter array with True False array
-        return (sum(count_list), (',').join(samples[np.array(count_list)]))
+        return (sum(count_list), (',').join(df_samples[count_list]))
 
     if 'N' in df.columns:
         df = df.drop(['N', 'Samples'], axis=1)
     if 'Position' in df.columns:
         df = df.drop('Position', axis=1)
 
+    df_samples = np.array(df.columns[4:])
     df[['N', 'Samples']] = df.parallel_apply(
         estract_sample_count, axis=1, result_type='expand')
 
@@ -517,9 +518,6 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     df = df[['Position', 'N', 'Samples'] +
             [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
     
-    if os.path.exists("jobid.batch"):
-                os.remove("jobid.batch")
-
     return df
 
 

@@ -1,4 +1,18 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=1
 
-python /home/laura/Laura_intel/Desktop/covid_multianalysis/coverage_stats.py $1 $2 $3
+# Input variables
+OUTDIR=$1
+[ ! -d $OUTDIR ] && echo "Directory $OUTDIR DOES NOT exists." && exit 1
+SAMPLE=$2
+output_markdup_trimmed_file=$3
+[ ! -f $output_markdup_trimmed_file ] && echo "$output_markdup_trimmed_file DOES NOT exists." && exit 1
+THREADS=$4
+
+#CREATE CoverageStats ##################################
+########################################################
+# Variable
+out_stats_dir=$(echo "$OUTDIR/Stats")
+out_stats_coverage_dir=$(echo "$out_stats_dir/Coverage")
+output_file=$(echo "$out_stats_coverage_dir/$SAMPLE.cov")
+
+samtools depth -aa $output_markdup_trimmed_file > $output_file
