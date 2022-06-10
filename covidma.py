@@ -401,7 +401,7 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
         counter += 1
 
-    os.system("rm %s" %("slurm-*"))
+    os.system("if [ $(ls slurm-* | wc -l) -ge 1 ] ; then rm %s; fi" %("slurm-*"))
     if os.path.exists("jobid.batch"):
         os.remove("jobid.batch")
 
