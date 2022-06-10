@@ -402,7 +402,8 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
         counter += 1
 
     os.system("rm %s" %("slurm-*"))
-    os.remove("jobid.batch")
+    if os.path.exists("jobid.batch"):
+        os.remove("jobid.batch")
 
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
