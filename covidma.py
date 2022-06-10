@@ -401,8 +401,9 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
         counter += 1
 
-    os.system("rm %s" %("slurm-*"))
-    os.remove("jobid.batch")
+    os.system("if [ $(ls | grep slurm | wc -l) -ge 1 ] ; then rm %s; fi" %("slurm-*"))
+    if os.path.exists("jobid.batch"):
+        os.remove("jobid.batch")
 
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
