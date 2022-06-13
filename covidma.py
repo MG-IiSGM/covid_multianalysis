@@ -708,7 +708,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         else:
                             logger.info(GREEN + "Creating pangolin annotation " + name + END_FORMATTING)
                             # Annotate variants with pangolin to obtain the linage
-                            os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_pangolin_test.sh %s %s %s %s %s > jobid.batch" 
+                            os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_pangolin.sh %s %s %s %s %s > jobid.batch" 
                             %(name_s + "pan", "2", filename, out_annot_pangolin_dir, out_pangolin_filename, "2", "0.6"))
                             os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
                             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
