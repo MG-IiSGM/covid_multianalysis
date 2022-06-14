@@ -69,7 +69,7 @@ bwa index $REF
 bwa mem -Y -M -t $THREADS -o $sam_file $REF $output_trimmed_r1 $output_trimmed_r2
 samtools view -Sb $sam_file --threads $THREADS -o $bam_file && rm $sam_file
 samtools sort $bam_file -o $sorted_bam_file && rm $bam_file
-python /home/laura/Laura_intel/Desktop/covid_multianalysis/add_SG.py $SAMPLE $sorted_bam_file $rg_sorted_bam_file $output_trimmed_r1 \
+python /home/laura/covid_multianalysis/add_SG.py $SAMPLE $sorted_bam_file $rg_sorted_bam_file $output_trimmed_r1 \
     && rm $sorted_bam_file
 
 #MARK DUPLICATES WITH PICARDTOOLS ###################
