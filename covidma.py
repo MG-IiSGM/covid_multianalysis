@@ -395,7 +395,7 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
             df_sample = df[['Position', sample]]
             df_sample.to_csv(out_consensus_dir + "/" + sample + ".csv", index=False, sep="\t")
 
-            os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/create_consensus.sh %s %s %s %s > jobid.batch" 
+            os.system("sbatch -J %s -c %s /home/laura/covid_multianalysis/create_consensus.sh %s %s %s %s > jobid.batch" 
             %(name_s + "cns", "2", reference, out_consensus_dir + "/" + sample + ".csv", out_stats_coverage_dir, out_consensus_dir))
             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
@@ -492,7 +492,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                             " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING) 
             else:
-                os.system("sbatch -J %s -c %s --mem 35G --requeue /home/laura/Laura_intel/Desktop/covid_multianalysis/map_sample.sh %s %s %s %s %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s -c %s --mem 35G --requeue /home/laura/covid_multianalysis/map_sample.sh %s %s %s %s %s %s %s > jobid.batch" 
                         %(name_s + "1", threads, output, r1_file, r2_file, sample, reference, threads, primers))
 
 
@@ -511,7 +511,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 jobid = f.readline().strip().split()[-1]
                 f.close()
                 os.remove("jobid.batch")
-                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/Laura_intel/Desktop/covid_multianalysis/ivar_variant_calling.sh %s %s %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/ivar_variant_calling.sh %s %s %s %s %s > jobid.batch" 
                     %(name_s + "2", "2", jobid, output, output_markdup_trimmed_file, sample, reference, annotation))
 
 
@@ -529,7 +529,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 jobid = f.readline().strip().split()[-1]
                 f.close()
                 os.remove("jobid.batch")
-                os.system("sbatch -J %s --mem 12G --dependency=afterok:%s /home/laura/Laura_intel/Desktop/covid_multianalysis/variant_filtering.sh %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/variant_filtering.sh %s %s %s > jobid.batch" 
                     %(name_s + "3", jobid, output, sample, out_ivar_variant_file))
             
             #CREATE CONSENSUS with ivar consensus##################
@@ -548,7 +548,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 jobid = f.readline().strip().split()[-1]
                 f.close()
                 os.remove("jobid.batch")
-                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/Laura_intel/Desktop/covid_multianalysis/consensus_ivar_create.sh %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/consensus_ivar_create.sh %s %s %s > jobid.batch" 
                     %(name_s + "4", "2", jobid, output, sample, output_markdup_trimmed_file))
             
             ########################CREATE STATS AND QUALITY FILTERS###############################
@@ -569,7 +569,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 jobid = f.readline().strip().split()[-1]
                 f.close()
                 os.remove("jobid.batch")
-                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/Laura_intel/Desktop/covid_multianalysis/bamstats.sh %s %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/bamstats.sh %s %s %s %s > jobid.batch" 
                     %(name_s + "5", threads, jobid, output, sample, output_markdup_trimmed_file, threads))
 
             #CREATE CoverageStats ##################################
@@ -588,7 +588,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 jobid = f.readline().strip().split()[-1]
                 f.close()
                 os.remove("jobid.batch")
-                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/Laura_intel/Desktop/covid_multianalysis/coverage_stats.sh %s %s %s %s > jobid.batch" 
+                os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/coverage_stats.sh %s %s %s %s > jobid.batch" 
                     %(name_s + "6", threads, jobid, output, sample, output_markdup_trimmed_file, threads))
             
             # CHECK PARALELL (3)
@@ -637,7 +637,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         else:
                             logger.info(GREEN + "Creating SNPEFF annotation " + name + END_FORMATTING)
                             # Annotates variants using snpEff
-                            os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s > jobid.batch" 
+                            os.system("sbatch -J %s -c %s /home/laura/covid_multianalysis/snpeff_annotation.sh %s %s %s %s %s > jobid.batch" 
                             %(name_s + "snf", "2", output, name, root, sample, snpeff_database))
                             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
                             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
@@ -658,7 +658,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 for name in files:
                     if name.endswith('.tsv'):
                         logger.info(GREEN + "Creating User annotation " + name + END_FORMATTING)
-                        os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_user.sh %s %s %s %s %s > jobid.batch" 
+                        os.system("sbatch -J %s -c %s /home/laura/covid_multianalysis/annotate_user.sh %s %s %s %s %s > jobid.batch" 
                         %(name_s + "use", "2", root, output, sample, output + "/" + "annot_vcf.txt", output + "/" + "annot_bed.txt"))
                         os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
@@ -679,7 +679,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 for name in files:
                     if name.endswith('.annot'):
                         logger.info(GREEN + "Creating User aa annotation " + name + END_FORMATTING)
-                        os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s > jobid.batch" 
+                        os.system("sbatch -J %s -c %s /home/laura/covid_multianalysis/useraa_annotation.sh %s %s %s %s %s > jobid.batch" 
                         %(name_s + "aa", "2", name, sample, output, root, output + "/" + "annot_aa.txt"))
                         os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
                         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
@@ -708,7 +708,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                         else:
                             logger.info(GREEN + "Creating pangolin annotation " + name + END_FORMATTING)
                             # Annotate variants with pangolin to obtain the linage
-                            os.system("sbatch -J %s -c %s /home/laura/Laura_intel/Desktop/covid_multianalysis/annotate_pangolin.sh %s %s %s %s %s > jobid.batch" 
+                            os.system("sbatch -J %s -c %s /home/laura/covid_multianalysis/annotate_pangolin.sh %s %s %s %s %s > jobid.batch" 
                             %(name_s + "pan", "2", filename, out_annot_pangolin_dir, out_pangolin_filename, "2", "0.6"))
                             os.system('while [ "$(squeue | grep $USER | grep %s | wc -l)" -ge "48" ]; do sleep 0.1; done' %(name_s))
                             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
