@@ -11,6 +11,7 @@ import concurrent.futures
 import argparse
 import subprocess
 import datetime
+import multiprocessing
 
 
 # Local application imports
@@ -650,21 +651,43 @@ def main():
         ".revised_INDEL_intermediate.tsv"
 
     # Get number proc
+    max_nproc = multiprocessing.cpu_count()
     n_files = len([f for f in os.listdir(out_variant_ivar_dir) if f.endswith(".tsv")])
     if n_files > 6000:
-        nproc = 96
+        if max_nproc >= 96:
+            nproc = 96
+        else:
+            nproc = max_nproc
     elif n_files > 4000:
-        nproc = 64
+        if max_nproc >= 64:
+            nproc = 64
+        else:
+            nproc = max_nproc
     elif n_files > 2000:
-        nproc = 32
+        if max_nproc >= 32:
+            nproc = 32
+        else:
+            nproc = max_nproc
     elif n_files > 500:
-        nproc = 16
+        if max_nproc >= 16:
+            nproc = 16
+        else:
+            nproc = max_nproc
     elif n_files > 100:
-        nproc = 8
+        if max_nproc >= 8:
+            nproc = 8
+        else:
+            nproc = max_nproc
     elif n_files > 50:
-        nproc = 4
+        if max_nproc >= 4:
+            nproc = 4
+        else:
+            nproc = max_nproc
     elif n_files > 30:
-        nproc = 2
+        if max_nproc >= 2:
+            nproc = 2
+        else:
+            nproc = max_nproc
     else:
         nproc = 1
 
