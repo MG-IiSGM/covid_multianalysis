@@ -290,7 +290,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
             else:
                 start += parts
                 end += parts
-            os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
             %(name_s + "mg", path, tsv_file_name, str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
@@ -353,7 +353,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         else:
             start += parts
             end += parts
-        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/create_csv.sh %s %s %s %s %s > jobid.batch" 
+        os.system("sbatch -J %s /home/laura/covid_multianalysis/create_csv.sh %s %s %s %s %s > jobid.batch" 
         %(name_s + "csv", name_or, out_compare_dir, samples_name_file, str(start), str(end)))
         os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
@@ -390,7 +390,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         else:
             start += parts
             end += parts
-        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_lowfreq.sh %s %s %s %s > jobid.batch" 
+        os.system("sbatch -J %s /home/laura/covid_multianalysis/extract_lowfreq.sh %s %s %s %s > jobid.batch" 
         %(name_s + "lf", out_compare_dir, name_csv_file, str(start), str(end)))
         os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
@@ -438,7 +438,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         else:
             start += parts
             end += parts
-        os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/extract_uncovered.sh %s %s %s %s %s > jobid.batch" 
+        os.system("sbatch -J %s /home/laura/covid_multianalysis/extract_uncovered.sh %s %s %s %s %s > jobid.batch" 
         %(name_s + "uc", out_compare_dir, slf_name_file, indel_name_file, str(start), str(end)))
         os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
         os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[0] - 1), name_s))
@@ -472,7 +472,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
             else:
                 start += parts
                 end += parts
-            os.system("sbatch -J %s /home/laura/Laura_intel/Desktop/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
             %(name_s + "mg", path, tsv_name_file, str(start), str(end), old_tag, new_tag, "1", coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
