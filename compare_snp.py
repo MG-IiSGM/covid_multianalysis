@@ -904,7 +904,7 @@ def matrix_to_cluster(pairwise_file, matrix_file, distance=0):
     final_cluster.to_csv(final_cluster_file, sep='\t', index=False)
 
 
-def revised_df(df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True):
+def revised_df(df, name_df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True):
     pandarallel.initialize(nb_workers=128)
     if remove_faulty == True:
 
@@ -980,7 +980,8 @@ def revised_df(df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sa
     # Remove positions with 0 samples after htz
     df = df[df.N > 0]
 
-    return df
+    # Save df to csv
+    df.to_csv(name_df, sep="\t", index=False)
 
 
 def recheck_variant_mpileup_intermediate(reference_id, position, alt_snp, sample, previous_binary, bam_folder):
@@ -1422,13 +1423,18 @@ if __name__ == '__main__':
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
-            recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
-                                                 min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
-
-            recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
-                                                       min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
+            p1 = multiprocessing.Process(target=revised_df, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal],
+                                        kwargs={"output_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                                "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
+                                                "drop_positions":True})
+            p2 = multiprocessing.Process(target=revised_df, args=[compare_snp_matrix_INDEL_intermediate_df, compare_snp_matrix_INDEL],
+                                        kwargs={"output_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                                "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
+                                                "drop_positions":True})
+            p1.start()
+            p2.start()
+            p1.join()
+            p2.join()
 
             p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
             p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
