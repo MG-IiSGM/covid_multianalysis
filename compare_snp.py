@@ -150,7 +150,7 @@ def extract_uncovered(cov_file, min_total_depth=4):
     return df
 
 def ddbb_create_intermediate_ori(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
     for root, _, files in os.walk(variant_dir):
@@ -310,7 +310,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
-    pandarallel.initialize(nb_workers=96)
+    pandarallel.initialize(nb_workers=128)
     def handle_lowfreq(x): return None if x <= min_freq_discard else x
     df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
                                                 'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
@@ -862,7 +862,7 @@ def calculate_mean_distance(row, df):
 
 
 def matrix_to_cluster(pairwise_file, matrix_file, distance=0):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     output_dir = ('/').join(pairwise_file.split('/')[0:-1])
 
     logger.info('Reading Matrix')
@@ -904,7 +904,7 @@ def matrix_to_cluster(pairwise_file, matrix_file, distance=0):
 
 
 def revised_df(df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     if remove_faulty == True:
 
         uncovered_positions = df.iloc[:, 3:].parallel_apply(lambda x:  sum(
