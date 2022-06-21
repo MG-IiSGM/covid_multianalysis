@@ -1421,11 +1421,11 @@ if __name__ == '__main__':
             compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
             p1 = multiprocessing.Process(target=revised_df, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal],
-                                        kwargs={"output_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                        kwargs={"out_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
                                                 "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
                                                 "drop_positions":True})
             p2 = multiprocessing.Process(target=revised_df, args=[compare_snp_matrix_INDEL_intermediate_df, compare_snp_matrix_INDEL],
-                                        kwargs={"output_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                        kwargs={"out_dir":output_dir, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
                                                 "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
                                                 "drop_positions":True})
             p1.start()

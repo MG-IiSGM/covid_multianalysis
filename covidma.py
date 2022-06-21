@@ -428,6 +428,43 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     counter = 0
     new_sample_number = 0
 
+    # Necessary variables
+    out_variant_dir = os.path.join(output, "Variants") 
+    out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
+    out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")
+    out_stats_dir = os.path.join(output, "Stats")  
+    out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
+    out_stats_bamstats_dir = os.path.join(out_stats_dir, "Bamstats")  # subfolder
+    out_annot_dir = os.path.join(output, "Annotation")              # Folder
+    out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
+    out_consensus_dir = os.path.join(output, "Consensus")               # Folder
+    out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")    # subfolder
+    out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
+    threads = str(args.threads)
+    #threads_plus = str(args.threads + 12)
+    primers = args.primers
+
+     # create annot_vcf file
+    f_annot_vcf = open(output + "/" + "annot_vcf.txt", "w")
+    for s in args.annot_vcf:
+        to_write = s.strip() + "\n"
+        f_annot_vcf.write(to_write)
+    f_annot_vcf.close()
+
+    # create annot_aa file
+    f_annot_aa = open(output + "/" + "annot_aa.txt", "w")
+    for s in args.annot_aa:
+        to_write = s.strip() + "\n"
+        f_annot_aa.write(to_write)
+    f_annot_aa.close()
+
+    # create annot_bed file
+    f_annot_bed = open(output + "/" + "annot_bed.txt", "w")
+    for s in args.annot_bed:
+        to_write = s.strip() + "\n"
+        f_annot_bed.write(to_write)
+    f_annot_bed.close()
+
     for i in range(len(r1)):
         r1_file = r1[i]
         r2_file = r2[i]
@@ -453,43 +490,6 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 logger.info("\n" + WHITE_BG + "STARTING SAMPLE: " + sample +
                             " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
             
-            # Necessary variables
-            out_variant_dir = os.path.join(output, "Variants") 
-            out_filtered_ivar_dir = os.path.join(out_variant_dir, "ivar_filtered") 
-            out_variant_ivar_dir = os.path.join(out_variant_dir, "ivar_raw")
-            out_stats_dir = os.path.join(output, "Stats")  
-            out_stats_coverage_dir = os.path.join(out_stats_dir, "Coverage")
-            out_stats_bamstats_dir = os.path.join(out_stats_dir, "Bamstats")  # subfolder
-            out_annot_dir = os.path.join(output, "Annotation")              # Folder
-            out_annot_user_aa_dir = os.path.join(out_annot_dir, "user_aa")  # subfolder
-            out_consensus_dir = os.path.join(output, "Consensus")               # Folder
-            out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")    # subfolder
-            out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
-            threads = str(args.threads)
-            #threads_plus = str(args.threads + 12)
-            primers = args.primers
-
-            # create annot_vcf file
-            f_annot_vcf = open(output + "/" + "annot_vcf.txt", "w")
-            for s in args.annot_vcf:
-                to_write = s.strip() + "\n"
-                f_annot_vcf.write(to_write)
-            f_annot_vcf.close()
-
-            # create annot_aa file
-            f_annot_aa = open(output + "/" + "annot_aa.txt", "w")
-            for s in args.annot_aa:
-                to_write = s.strip() + "\n"
-                f_annot_aa.write(to_write)
-            f_annot_aa.close()
-
-            # create annot_bed file
-            f_annot_bed = open(output + "/" + "annot_bed.txt", "w")
-            for s in args.annot_bed:
-                to_write = s.strip() + "\n"
-                f_annot_bed.write(to_write)
-            f_annot_bed.close()
-
             ######################################################
             # QUALITY CHECK in RAW with fastqc
             # QUALITY TRIMMING AND ADAPTER REMOVAL WITH fastp
