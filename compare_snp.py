@@ -15,6 +15,7 @@ import datetime
 import scipy.cluster.hierarchy as shc
 import scipy.spatial.distance as ssd  # pdist
 from pandarallel import pandarallel
+import multiprocessing
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -149,7 +150,7 @@ def extract_uncovered(cov_file, min_total_depth=4):
     return df
 
 def ddbb_create_intermediate_ori(variant_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=True):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     df = pd.DataFrame(columns=['REGION', 'POS', 'REF', 'ALT'])
     # Merge all raw
     for root, _, files in os.walk(variant_dir):
@@ -309,7 +310,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
-    pandarallel.initialize(nb_workers=96)
+    pandarallel.initialize(nb_workers=128)
     def handle_lowfreq(x): return None if x <= min_freq_discard else x
     df = df[['REGION', 'POS', 'REF', 'ALT'] + [col for col in df.columns if col !=
                                                 'REGION' and col != 'POS' and col != 'REF' and col != 'ALT']]
@@ -862,7 +863,7 @@ def calculate_mean_distance(row, df):
 
 
 def matrix_to_cluster(pairwise_file, matrix_file, distance=0):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     output_dir = ('/').join(pairwise_file.split('/')[0:-1])
 
     logger.info('Reading Matrix')
@@ -904,7 +905,7 @@ def matrix_to_cluster(pairwise_file, matrix_file, distance=0):
 
 
 def revised_df(df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     if remove_faulty == True:
 
         uncovered_positions = df.iloc[:, 3:].parallel_apply(lambda x:  sum(
@@ -1412,28 +1413,30 @@ if __name__ == '__main__':
             else:
                 logger.info("\n\n" + "USING: " +
                         str(nproc) + " core" + "\n")
-                recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(
-                input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+                recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(input_dir, coverage_dir,
+                    min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
-                recalibrated_snp_matrix_intermediate = remove_bed_positions(
-                    recalibrated_snp_matrix_intermediate, args.remove_bed)
-            recalibrated_snp_matrix_intermediate.to_csv(
-                compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+                recalibrated_snp_matrix_intermediate = remove_bed_positions(recalibrated_snp_matrix_intermediate, args.remove_bed)
+            recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
-            compare_snp_matrix_INDEL_intermediate_df.to_csv(
-                compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+            compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_df.to_csv(
-                compare_snp_matrix_recal, sep="\t", index=False)
+            recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
+
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_INDEL_df.to_csv(
-                compare_snp_matrix_INDEL, sep="\t", index=False)
+            recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
-            ddtb_compare(compare_snp_matrix_recal, distance=args.distance)
-            ddtb_compare(compare_snp_matrix_INDEL,
-                         distance=args.distance, indel=True)
+            p1 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance,))
+            p1.start()
+            p2 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance, True,))
+            p2.start()
+            p1.join()
+            p2.join()
+
     else:
         compare_matrix = os.path.abspath(args.only_compare)
         ddtb_compare(compare_matrix, distance=args.distance)

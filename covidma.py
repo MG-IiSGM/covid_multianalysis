@@ -330,13 +330,13 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
     # Get number proc
     n_files = len([f for f in os.listdir(out_variant_ivar_dir) if f.endswith(".tsv")])
     if n_files > 6000:
-        nproc = 96
+        nproc = 128
     elif n_files > 4000:
-        nproc = 64
+        nproc = 96
     elif n_files > 2000:
-        nproc = 32
+        nproc = 64
     elif n_files > 500:
-        nproc = 16
+        nproc = 32
     elif n_files > 100:
         nproc = 8
     elif n_files > 50:
