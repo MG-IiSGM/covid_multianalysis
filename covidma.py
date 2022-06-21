@@ -465,6 +465,7 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
         f_annot_bed.write(to_write)
     f_annot_bed.close()
 
+    # Loop for each sample
     for i in range(len(r1)):
         r1_file = r1[i]
         r2_file = r2[i]
