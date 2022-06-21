@@ -363,14 +363,20 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
     compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
     compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
-    recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
-                                         min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
-    
-    recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, path_compare, min_freq_include=0.7,
-                                               min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
+    p1 = multiprocessing.Process(target=revised_df, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal],
+                                        kwargs={"output_dir":path_compare, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                                "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
+                                                "drop_positions":True})
+    p2 = multiprocessing.Process(target=revised_df, args=[compare_snp_matrix_INDEL_intermediate_df, compare_snp_matrix_INDEL],
+                                kwargs={"output_dir":path_compare, "min_freq_include":0.7, "min_threshold_discard_sample":0.4,
+                                        "min_threshold_discard_position":0.4, "remove_faulty":True, "drop_samples":True,
+                                        "drop_positions":True})
+    p1.start()
+    p2.start()
+    p1.join()
+    p2.join()
+    
     p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
     p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
     p1.start()
