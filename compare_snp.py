@@ -1426,9 +1426,17 @@ if __name__ == '__main__':
             compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
-            recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(name_s,
-                output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
-                min_alt_dp=4, only_snp=False, nproc=nproc)
+            if nproc > 1:
+                logger.info("\n\n" + "USING: " +
+                        str(nproc) + " cores" + "\n")
+                recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(name_s, 
+                        output_dir, input_dir, coverage_dir, min_freq_discard=0.1, 
+                        min_alt_dp=4, only_snp=False, nproc=nproc)
+            else:
+                logger.info("\n\n" + "USING: " +
+                        str(nproc) + " core" + "\n")
+                recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(input_dir, coverage_dir,
+                    min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
