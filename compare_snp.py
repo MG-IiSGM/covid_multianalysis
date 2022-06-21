@@ -337,7 +337,10 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # List to store number of process
     l_process = []
-    nproc = nproc_cpy // 2
+    if nproc_cpy > 96:
+        nproc = 48
+    else:
+        nproc = nproc_cpy // 2
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
