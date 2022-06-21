@@ -1430,9 +1430,9 @@ if __name__ == '__main__':
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
-            p1 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance,))
+            p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal, args.distance, False])
+            p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal, args.distance, True])
             p1.start()
-            p2 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance, True,))
             p2.start()
             p1.join()
             p2.join()
