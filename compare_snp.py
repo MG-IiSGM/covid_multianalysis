@@ -1374,25 +1374,25 @@ if __name__ == '__main__':
     # Get number proc
     # Get number proc
     max_nproc = multiprocessing.cpu_count()
-    n_files = len([f for f in os.listdir(out_variant_ivar_dir) if f.endswith(".tsv")])
+    n_files = len([f for f in os.listdir(args.input_dir) if f.endswith(".tsv")])
     if n_files > 6000:
+        if max_nproc >= 128:
+            nproc = 128
+        else:
+            nproc = max_nproc
+    elif n_files > 4000:
         if max_nproc >= 96:
             nproc = 96
         else:
             nproc = max_nproc
-    elif n_files > 4000:
+    elif n_files > 2000:
         if max_nproc >= 64:
             nproc = 64
         else:
             nproc = max_nproc
-    elif n_files > 2000:
+    elif n_files > 500:
         if max_nproc >= 32:
             nproc = 32
-        else:
-            nproc = max_nproc
-    elif n_files > 500:
-        if max_nproc >= 16:
-            nproc = 16
         else:
             nproc = max_nproc
     elif n_files > 100:
@@ -1446,9 +1446,13 @@ if __name__ == '__main__':
             recalibrated_revised_INDEL_df.to_csv(
                 compare_snp_matrix_INDEL, sep="\t", index=False)
 
-            ddtb_compare(compare_snp_matrix_recal, distance=args.distance)
-            ddtb_compare(compare_snp_matrix_INDEL,
-                         distance=args.distance, indel=True)
+            p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
+            p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
+            p1.start()
+            p2.start()
+            p1.join()
+            p2.join()
+            
     else:
         compare_matrix = os.path.abspath(args.only_compare)
         ddtb_compare(compare_matrix, distance=args.distance)
