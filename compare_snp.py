@@ -1431,7 +1431,7 @@ if __name__ == '__main__':
             recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
             p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
-            p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal],  kwargs={"distance":args.distance, "indel":True})
+            p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
             p1.start()
             p2.start()
             p1.join()
