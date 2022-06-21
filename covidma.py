@@ -371,9 +371,9 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
                                                min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
     recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
-    p1 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance,))
+    p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
+    p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal],  kwargs={"distance":args.distance, "indel":True})
     p1.start()
-    p2 = multiprocessing.Process(target=ddtb_compare, args=(compare_snp_matrix_recal, args.distance, True,))
     p2.start()
     p1.join()
     p2.join()
