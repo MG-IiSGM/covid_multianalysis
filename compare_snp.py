@@ -1415,7 +1415,7 @@ if __name__ == '__main__':
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(recalibrated_snp_matrix_intermediate, args.remove_bed)
             recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
-            exit(1)
+
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
