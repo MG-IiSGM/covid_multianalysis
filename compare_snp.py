@@ -291,7 +291,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
             else:
                 start += parts
                 end += parts
-            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_hdf.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
             %(name_s + "mg", path, tsv_file_name, str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
@@ -303,12 +303,10 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            # df = pd.read_csv(tsv_files[i], sep="\t")
-            df = pd.read_hdf(tsv_files[i], mode="r")
+            df = pd.read_csv(tsv_files[i], sep="\t")
             os.remove(tsv_files[i])
             continue
-        # dfv = pd.read_csv(tsv_files[i], sep="\t")
-        dfv = pd.read_hdf(tsv_files[i], mode="r")
+        dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
