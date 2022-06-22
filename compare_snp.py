@@ -326,7 +326,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # Store merged dataframe
     name_or = os.path.join(out_compare_dir, "original.or")
-    df.to_hdf("prueba.hdf", "hdf", mode="w", format="fixed", index=False)
+    df.to_hdf(name_or, "hdf", mode="w", format="fixed", index=False)
     # df.to_csv(name_or, index=False, sep="\t")
     
     # File to store samples name each sample (column)
