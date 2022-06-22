@@ -303,12 +303,10 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            df = pd.read_hdf(tsv_files[i], mode="r")
-            # df = pd.read_csv(tsv_files[i], sep="\t")
+            df = pd.read_csv(tsv_files[i], sep="\t")
             os.remove(tsv_files[i])
             continue
-        dfv = pd.read_hdf(tsv_files[i], mode="r")
-        # dfv = pd.read_csv(tsv_files[i], sep="\t")
+        dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
@@ -340,7 +338,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # List to store number of process
     l_process = []
-    nproc = 45 # Limit to 45
+    nproc = 35 # Limit to 35
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -487,17 +485,15 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            df = pd.read_hdf(tsv_files[i], mode="r")
-            # df = pd.read_csv(tsv_files[i], sep="\t")
+            df = pd.read_csv(tsv_files[i], sep="\t")
             os.remove(tsv_files[i])
             continue
-        dfv = pd.read_hdf(tsv_files[i], mode="r")
-        # dfv = pd.read_csv(tsv_files[i], sep="\t")
+        dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
     # Asign 0 to rest (Absent)
-    #os.system("rm %s" %("slurm-*"))
+    os.system("rm %s" %("slurm-*"))
     if os.path.exists("jobid.batch"):
                 os.remove("jobid.batch")
     df.fillna(0, inplace=True)
