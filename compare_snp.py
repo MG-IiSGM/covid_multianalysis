@@ -291,7 +291,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
             else:
                 start += parts
                 end += parts
-            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_df.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
+            os.system("sbatch -J %s /home/laura/covid_multianalysis/merge_hdf.sh %s %s %s %s %s %s %s %s %s %s %s > jobid.batch" 
             %(name_s + "mg", path, tsv_file_name, str(start), str(end), old_tag, new_tag, str(index), coverage_dir, out_compare_dir, str(only_snp), str(min_alt_dp)))
             os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" = "96" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(endex), str(l_process[index] - 1), name_s))
@@ -303,10 +303,12 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            df = pd.read_csv(tsv_files[i], sep="\t")
+            # df = pd.read_csv(tsv_files[i], sep="\t")
+            df = pd.read_hdf(tsv_files[i], mode="r")
             os.remove(tsv_files[i])
             continue
-        dfv = pd.read_csv(tsv_files[i], sep="\t")
+        # dfv = pd.read_csv(tsv_files[i], sep="\t")
+        dfv = pd.read_hdf(tsv_files[i], mode="r")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
@@ -1430,6 +1432,7 @@ if __name__ == '__main__':
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             # recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
+            logger.info("\n\n" + "Storing files to csv" + "\n")
             p1 = multiprocessing.Process(target=df_to_csv, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal_intermediate])
             p2 = multiprocessing.Process(target=df_to_csv, args=[compare_snp_matrix_INDEL_intermediate_df, compare_snp_matrix_INDEL_intermediate])
             p3 = multiprocessing.Process(target=df_to_csv, args=[recalibrated_revised_df, compare_snp_matrix_recal])

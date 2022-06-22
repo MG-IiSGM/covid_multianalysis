@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-
 # imports
 import pandas as pd
 import os
 import sys
-
 # Auxiliary function
 def import_tsv_variants(tsv_file, cov_path,  min_total_depth=4, min_alt_dp=4, only_snp=True):
 
@@ -41,8 +39,8 @@ def import_tsv_variants(tsv_file, cov_path,  min_total_depth=4, min_alt_dp=4, on
     else:
         return (df, df_lowfreq, df_uncover)
 
-def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, out_compare_dir, only_snp, min_alt_dp):
-
+def merge_hdf(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, out_compare_dir, only_snp, min_alt_dp):
+   
     c = 0
     tsv_files = []
     f = open(tsv_files_f, "r")
@@ -60,13 +58,16 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             df, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
-                df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
-            df_uncover.to_csv(un_name_file, index=False, sep="\t")
+                df.to_hdf(lf_name_file, "hdf", mode="w", format="fixed", index=False)
+                #df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
+            # df_uncover.to_csv(un_name_file, index=False, sep="\t")
+            df_uncover.to_hdf(un_name_file, "hdf", mode="w", format="fixed", index=False)
             c += 1
             continue
 
         elif not c and flag:
-            df = pd.read_csv(name_file, sep="\t")
+            # df = pd.read_csv(name_file, sep="\t")
+            df = pd.read_hdf(name_file, mode="r")
             c += 1
             continue
 
@@ -74,20 +75,22 @@ def merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, ou
             dfv, df_lowfreq, df_uncover = import_tsv_variants(name_file, cov_path, min_alt_dp=min_alt_dp, only_snp=only_snp)
 
             if df_lowfreq.shape[0]: # If it is not empty
-                df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
-            df_uncover.to_csv(un_name_file, index=False, sep="\t")
+                df.to_hdf(lf_name_file, "hdf", mode="w", format="fixed", index=False)
+                #df_lowfreq.to_csv(lf_name_file, index=False, sep="\t")
+            # df_uncover.to_csv(un_name_file, index=False, sep="\t")
+            df_uncover.to_hdf(un_name_file, "hdf", mode="w", format="fixed", index=False)
             df = df.merge(dfv, how="outer")
 
         elif flag and file.endswith(old_tag):
-            dfv = pd.read_csv(name_file, sep = "\t")
-            df = df.merge(dfv, how="outer")
+            dfv = pd.read_hdf(name_file, mode="r")
+            # dfv = pd.read_csv(name_file, sep = "\t")
 
-    df.to_csv(out_compare_dir + "/" + "%i-%i%s" %(start, end, new_tag), index=False, sep='\t')
+    # df.to_csv(out_compare_dir + "/" + "%i-%i%s" %(start, end, new_tag), index=False, sep='\t')
+    df.to_hdf(out_compare_dir + "/" + "%i-%i%s" %(start, end, new_tag), "hdf", mode="w", format="fixed", index=False)
     if old_tag != ".tsv":
         for t in part:
             name_file = os.path.join(path, t)
             os.remove(name_file)
-
 path = sys.argv[1]
 tsv_files_f = sys.argv[2]
 start = int(sys.argv[3])
@@ -103,5 +106,5 @@ if only_snp == "True":
     only_snp = True
 else:
     only_snp = False
-
-merge_df(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, out_compare_dir, only_snp, min_alt_dp)
+merge_hdf(path, tsv_files_f, start, end, old_tag, new_tag, flag, cov_path, out_compare_dir, only_snp, min_alt_dp)
+    
