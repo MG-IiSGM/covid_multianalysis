@@ -324,7 +324,8 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # Store merged dataframe
     name_or = os.path.join(out_compare_dir, "original.or")
-    df.to_csv(name_or, index=False, sep="\t")
+    df.to_hdf(name_or, "hdf", mode="w", format="fixed", index=False)
+    # df.to_csv(name_or, index=False, sep="\t")
     
     # File to store samples name each sample (column)
     samples = [c for c in df.columns if c not in ['REGION', 'POS', 'REF', 'ALT']]
@@ -337,7 +338,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # List to store number of process
     l_process = []
-    nproc = 30 # Limit to 30
+    nproc = 35 # Limit to 35
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -493,22 +494,22 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # Asign 0 to rest (Absent)
     os.system("rm %s" %("slurm-*"))
+    if os.path.exists("jobid.batch"):
+                os.remove("jobid.batch")
     df.fillna(0, inplace=True)
 
     # Determine N (will help in poorly covered determination)
     def estract_sample_count(row):
         count_list = [i not in ['!', 0, '0'] for i in row[4:]]
-        samples = np.array(df.columns[4:])
-        # samples[np.array(count_list)] filter array with True False array
-        return (sum(count_list), (',').join(samples[np.array(count_list)]))
+        return (sum(count_list), (',').join(df_samples[count_list]))
 
     if 'N' in df.columns:
         df = df.drop(['N', 'Samples'], axis=1)
     if 'Position' in df.columns:
         df = df.drop('Position', axis=1)
 
-    df[['N', 'Samples']] = df.parallel_apply(
-        estract_sample_count, axis=1, result_type='expand')
+    df_samples = np.array(df.columns[4:])
+    df[['N', 'Samples']] = df.parallel_apply(estract_sample_count, axis=1, result_type='expand')
 
     df['Position'] = df.parallel_apply(lambda x: ('|').join(
         [x['REGION'], x['REF'], str(x['POS']), x['ALT']]), axis=1)
@@ -518,9 +519,6 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     df = df[['Position', 'N', 'Samples'] +
             [col for col in df.columns if col not in ['Position', 'N', 'Samples']]]
     
-    if os.path.exists("jobid.batch"):
-                os.remove("jobid.batch")
-
     return df
 
 
@@ -1372,44 +1370,21 @@ if __name__ == '__main__':
     compare_snp_matrix = group_compare + ".tsv"
 
     # Get number proc
-    # Get number proc
-    max_nproc = multiprocessing.cpu_count()
     n_files = len([f for f in os.listdir(args.input_dir) if f.endswith(".tsv")])
     if n_files > 6000:
-        if max_nproc >= 128:
-            nproc = 128
-        else:
-            nproc = max_nproc
+        nproc = 128
     elif n_files > 4000:
-        if max_nproc >= 96:
-            nproc = 96
-        else:
-            nproc = max_nproc
+        nproc = 96
     elif n_files > 2000:
-        if max_nproc >= 64:
-            nproc = 64
-        else:
-            nproc = max_nproc
+        nproc = 64
     elif n_files > 500:
-        if max_nproc >= 32:
-            nproc = 32
-        else:
-            nproc = max_nproc
+        nproc = 32
     elif n_files > 100:
-        if max_nproc >= 8:
-            nproc = 8
-        else:
-            nproc = max_nproc
+        nproc = 8
     elif n_files > 50:
-        if max_nproc >= 4:
-            nproc = 4
-        else:
-            nproc = max_nproc
+        nproc = 4
     elif n_files > 30:
-        if max_nproc >= 2:
-            nproc = 2
-        else:
-            nproc = max_nproc
+        nproc = 2
     else:
         nproc = 1
 
@@ -1438,21 +1413,19 @@ if __name__ == '__main__':
                 recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(input_dir, coverage_dir,
                     min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
-                recalibrated_snp_matrix_intermediate = remove_bed_positions(
-                    recalibrated_snp_matrix_intermediate, args.remove_bed)
-            recalibrated_snp_matrix_intermediate.to_csv(
-                compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+                recalibrated_snp_matrix_intermediate = remove_bed_positions(recalibrated_snp_matrix_intermediate, args.remove_bed)
+            recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+            
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
-            compare_snp_matrix_INDEL_intermediate_df.to_csv(
-                compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+            compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_df.to_csv(
-                compare_snp_matrix_recal, sep="\t", index=False)
+            recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
+
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_INDEL_df.to_csv(
-                compare_snp_matrix_INDEL, sep="\t", index=False)
+            recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
             p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
             p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
@@ -1460,7 +1433,7 @@ if __name__ == '__main__':
             p2.start()
             p1.join()
             p2.join()
-            
+
     else:
         compare_matrix = os.path.abspath(args.only_compare)
         ddtb_compare(compare_matrix, distance=args.distance)

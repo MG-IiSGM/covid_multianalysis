@@ -12,7 +12,8 @@ def create_csv(df_file, path, csv_files_f, start, end):
     f.close()
     part = csv_files[start:end]
 
-    df = pd.read_csv(df_file, sep = "\t")
+    # df = pd.read_csv(df_file, sep = "\t")
+    df = pd.read_hdf(df_file, mode="r")
 
     for csv in part:
         df_sample = df[['REGION', 'POS', 'REF', 'ALT', csv]]
