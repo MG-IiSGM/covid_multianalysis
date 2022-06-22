@@ -735,8 +735,8 @@ def main():
     p3.join()
     p4.join()
 
-    p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":args.distance, "indel":False})
-    p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":args.distance, "indel":True})
+    p1 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_recal], kwargs={"distance":0, "indel":False})
+    p2 = multiprocessing.Process(target=ddtb_compare, args=[compare_snp_matrix_INDEL],  kwargs={"distance":0, "indel":True})
     p1.start()
     p2.start()
     p1.join()
