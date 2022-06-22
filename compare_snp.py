@@ -340,7 +340,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # List to store number of process
     l_process = []
-    nproc = 30 # Limit to 30
+    nproc = 45 # Limit to 45
     while nproc // 2:
         l_process.append(nproc)
         nproc = nproc // 2
@@ -497,7 +497,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         os.remove(tsv_files[i])
 
     # Asign 0 to rest (Absent)
-    os.system("rm %s" %("slurm-*"))
+    #os.system("rm %s" %("slurm-*"))
     if os.path.exists("jobid.batch"):
                 os.remove("jobid.batch")
     df.fillna(0, inplace=True)
@@ -1419,7 +1419,7 @@ if __name__ == '__main__':
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(recalibrated_snp_matrix_intermediate, args.remove_bed)
             recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
-
+            exit(1)
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
