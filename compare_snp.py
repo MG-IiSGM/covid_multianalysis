@@ -303,10 +303,12 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            df = pd.read_csv(tsv_files[i], sep="\t")
+            df = pd.read_hdf(tsv_files[i], mode="r")
+            # df = pd.read_csv(tsv_files[i], sep="\t")
             os.remove(tsv_files[i])
             continue
-        dfv = pd.read_csv(tsv_files[i], sep="\t")
+        dfv = pd.read_hdf(tsv_files[i], mode="r")
+        # dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
@@ -324,7 +326,8 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
 
     # Store merged dataframe
     name_or = os.path.join(out_compare_dir, "original.or")
-    df.to_csv(name_or, index=False, sep="\t")
+    df.to_hdf("prueba.hdf", "hdf", mode="w", format="fixed", index=False)
+    # df.to_csv(name_or, index=False, sep="\t")
     
     # File to store samples name each sample (column)
     samples = [c for c in df.columns if c not in ['REGION', 'POS', 'REF', 'ALT']]
@@ -484,10 +487,12 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
     tsv_files = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(new_tag)]
     for i in range(len(tsv_files)):
         if not i:
-            df = pd.read_csv(tsv_files[i], sep="\t")
+            df = pd.read_hdf(tsv_files[i], mode="r")
+            # df = pd.read_csv(tsv_files[i], sep="\t")
             os.remove(tsv_files[i])
             continue
-        dfv = pd.read_csv(tsv_files[i], sep="\t")
+        dfv = pd.read_hdf(tsv_files[i], mode="r")
+        # dfv = pd.read_csv(tsv_files[i], sep="\t")
         df = df.merge(dfv, how="outer")
         os.remove(tsv_files[i])
 
@@ -508,8 +513,7 @@ def ddbb_create_intermediate(name_s, out_compare_dir, variant_dir, coverage_dir,
         df = df.drop('Position', axis=1)
 
     df_samples = np.array(df.columns[4:])
-    df[['N', 'Samples']] = df.parallel_apply(
-        estract_sample_count, axis=1, result_type='expand')
+    df[['N', 'Samples']] = df.parallel_apply(estract_sample_count, axis=1, result_type='expand')
 
     df['Position'] = df.parallel_apply(lambda x: ('|').join(
         [x['REGION'], x['REF'], str(x['POS']), x['ALT']]), axis=1)
@@ -1422,7 +1426,7 @@ if __name__ == '__main__':
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
-            
+
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)

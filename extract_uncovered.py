@@ -18,12 +18,15 @@ def extract_uncovered(path, slf_files_f, indel_position_final_f, start, end):
 
     for slf in part:
         sample = slf.split(".")[0]
-        df_slf = pd.read_csv(path + "/" + slf, sep='\t')
-        df_uc = pd.read_csv(path + "/" + sample + ".ucov", sep="\t")
+        # df_slf = pd.read_csv(path + "/" + slf, sep='\t')
+        df_slf = pd.read_hdf(path + "/" + slf, mode="r")
+        # df_uc = pd.read_csv(path + "/" + sample + ".ucov", sep="\t")
+        df_uc = pd.read_hdf(path + "/" + sample + ".ucov", mode="r")
         df_uc = df_uc[~df_uc.POS.isin(indel_position_final)]
         df_slf[sample].update(df_slf[['REGION', 'POS']].merge(
                         df_uc, on=['REGION', 'POS'], how='left')[sample])
-        df_slf.to_csv(path + "/" + sample + ".uslf", index=False, sep="\t")
+        df_slf.to_hdf(path + "/" + sample + ".uslf", "hdf", mode="w", format="fixed", index=False)
+        # df_slf.to_csv(path + "/" + sample + ".uslf", index=False, sep="\t")
         os.system("rm %s %s" %(path + "/" + slf, path + "/" + sample + ".ucov"))
 
 path = sys.argv[1]

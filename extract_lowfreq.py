@@ -15,11 +15,14 @@ def extract_lowfreq(path, csv_files_f, start, end):
         if not os.path.exists(path + "/" + sample + ".lf"):
             os.system("mv %s %s" %(path + "/" + csv, path + "/" + sample + ".slf"))
             continue
-        df_csv = pd.read_csv(path + "/" + csv, sep='\t')
-        df_lf = pd.read_csv(path + "/" + sample + ".lf", sep="\t")
+        # df_csv = pd.read_csv(path + "/" + csv, sep='\t')
+        df_csv = pd.read_hdf(path + "/" + csv, mode="r")
+        # df_lf = pd.read_csv(path + "/" + sample + ".lf", sep="\t")
+        df_lf = pd.read_hdf(path + "/" + sample + ".lf", mode="r")
         df_csv[sample].update(df_csv[['REGION', 'POS', 'REF', 'ALT']].merge(
                         df_lf, on=['REGION', 'POS', 'REF', 'ALT'], how='left')[sample])
-        df_csv.to_csv(path + "/" + sample + ".slf", index=False, sep="\t")
+        df_csv.to_hdf(path + "/" + sample + ".slf", "hdf", mode="w", format="fixed", index=False)
+        # df_csv.to_csv(path + "/" + sample + ".slf", index=False, sep="\t")
         os.system("rm %s %s" %(path + "/" + csv, path + "/" + sample + ".lf"))
 
 path = sys.argv[1]
