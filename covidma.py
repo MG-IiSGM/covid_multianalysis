@@ -360,21 +360,14 @@ def snp_comparison(name_s, args, logger, output, group_name, out_variant_ivar_di
                 str(nproc) + " core" + "\n")
         recalibrated_snp_matrix_intermediate = ddbb_create_intermediate_ori(
         out_variant_ivar_dir, out_stats_coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
-    
-    # recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
 
     compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
-    # compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
-
 
     recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    # recalibrated_revised_df.to_csv(
-    #     compare_snp_matrix_recal, sep="\t", index=False)
+
     recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, path_compare, min_freq_include=0.7,
                                                 min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    # recalibrated_revised_INDEL_df.to_csv(
-    #     compare_snp_matrix_INDEL, sep="\t", index=False)
     
     logger.info("\n\n" + "Storing files to csv" + "\n")
     p1 = multiprocessing.Process(target=df_to_csv, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal_intermediate])
@@ -454,7 +447,6 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
     out_consensus_ivar_dir = os.path.join(out_consensus_dir, "ivar")    # subfolder
     out_annot_pangolin_dir = os.path.join(out_annot_dir, "pangolin")    # subfolder
     threads = str(args.threads)
-    #threads_plus = str(args.threads + 12)
     primers = args.primers
 
      # create annot_vcf file
@@ -615,8 +607,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 os.system("sbatch -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/coverage_stats.sh %s %s %s %s > jobid.batch" 
                     %(name_s + "6", threads, jobid, output, sample, output_markdup_trimmed_file, threads))
             
-            # CHECK PARALELL (3)
-            os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "18" ]; do sleep 0.1; done' %(name_s))
+            # CHECK PARALELL (4)
+            os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "24" ]; do sleep 0.1; done' %(name_s))
             os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
             counter += 1
 
