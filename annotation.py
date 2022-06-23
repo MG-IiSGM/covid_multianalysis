@@ -266,7 +266,7 @@ def checkAA(snpEffRow, dfAnnot):
     return (',').join(annotation_list[np.array(presence_list)])
 
 def annotate_aas(annot_file, aas):
-    pandarallel.initialize()
+    pandarallel.initialize(nb_workers=128)
     df = pd.read_csv(annot_file, sep="\t")
     for aa in aas:
         
