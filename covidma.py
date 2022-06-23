@@ -507,6 +507,8 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                             " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING) 
             else:
+                logger.info(GREEN +
+                            "BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING) 
                 os.system("sbatch --output=/dev/null --error=/dev/null -J %s -c %s --mem 35G --requeue /home/laura/covid_multianalysis/map_sample.sh %s %s %s %s %s %s %s > jobid.batch" 
                         %(name_s + "1", threads, output, r1_file, r2_file, sample, reference, threads, primers))
 
