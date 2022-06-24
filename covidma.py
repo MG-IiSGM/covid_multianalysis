@@ -608,9 +608,9 @@ def covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name
                 os.system("sbatch --output=/dev/null --error=/dev/null -J %s -c %s --mem 12G --dependency=afterok:%s /home/laura/covid_multianalysis/coverage_stats.sh %s %s %s %s > jobid.batch" 
                     %(name_s + "6", threads, jobid, output, sample, output_markdup_trimmed_file, threads))
             
-            # CHECK PARALELL (4)
+            # CHECK PARALELL (3)
             if not os.path.isfile(out_ivar_variant_file) or counter == l:
-                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "24" ]; do sleep 0.1; done' %(name_s))
+                os.system('while [ "$(squeue | grep $USER | grep "%s" | wc -l)" -ge "18" ]; do sleep 0.1; done' %(name_s))
                 os.system('if [ %s = %s ]; then while [ $(squeue | grep $USER | grep "%s" | wc -l) != 0 ]; do sleep 0.1; done; fi' %(str(counter), l, name_s))
             counter += 1
 
