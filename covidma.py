@@ -754,6 +754,16 @@ def main():
     logger.info("\n\n" + MAGENTA + BOLD +
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
+# rsync
+print("STARTING RSYNC CLUSTER NASII")
+os.system("rsync -Pvzhurltc --progress \
+                --exclude '*Trimmed*' \
+                --exclude '*.fastq.gz' \
+                --exclude '*.fq.gz' \
+                --exclude '*Quality/processed*' \
+                --exclude '*Quality/raw*' \
+                /home/laura/cluster/ANALYSIS/VARIANT_CALLING/COVID \
+                /media/NASII/Datos/ANALYSIS/VARIANT_CALLING/")
 
 if __name__ == '__main__':
     try:
