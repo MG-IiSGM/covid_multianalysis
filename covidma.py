@@ -766,6 +766,7 @@ r1, r2, sample_list_F, new_samples = obtain_reads(args, logger)
 covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation)
 
 # rsync
+print("STARTING RSYNC CLUSTER NASII")
 os.system("rsync -Pvzhurltc --progress \
                 --exclude '*Trimmed*' \
                 --exclude '*.fastq.gz' \
