@@ -764,3 +764,13 @@ r1, r2, sample_list_F, new_samples = obtain_reads(args, logger)
 
 # Run COVIDMA
 covidma(output, args, logger, r1, r2, sample_list_F, new_samples, group_name, reference, annotation)
+
+# rsync
+os.system("rsync -Pvzhurltc --progress \
+                --exclude '*Trimmed*' \
+                --exclude '*.fastq.gz' \
+                --exclude '*.fq.gz' \
+                --exclude '*Quality/processed*' \
+                --exclude '*Quality/raw*' \
+                /home/laura/cluster/ANALYSIS/VARIANT_CALLING/COVID \
+                /media/NASII/Datos/ANALYSIS/VARIANT_CALLING/")
