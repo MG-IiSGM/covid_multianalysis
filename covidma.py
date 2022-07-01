@@ -94,6 +94,8 @@ def main():
                                  help='Sample names to analyse only in the file supplied')
         input_group.add_argument('-p', '--primers', type=str, default='/home/laura/DATABASES/Anotacion/COVID/primers/nCoV-2019.bed',
                                  required=False, help='Bed file including primers to trim')
+        input_group.add_argument('--rsync', default=False,
+                                required=False, help='rsync cluster and NASII')
 
         quality_group = parser.add_argument_group(
             'Quality parameters', 'parameters for diferent triming conditions')
@@ -755,15 +757,16 @@ def main():
                 "#####END OF PIPELINE COVID MULTI ANALYSIS#####" + END_FORMATTING + "\n")
 
 # rsync
-print("STARTING RSYNC CLUSTER NASII")
-os.system("rsync -Pvzhurltc --progress \
-                --exclude '*Trimmed*' \
-                --exclude '*.fastq.gz' \
-                --exclude '*.fq.gz' \
-                --exclude '*Quality/processed*' \
-                --exclude '*Quality/raw*' \
-                /home/laura/cluster/ANALYSIS/VARIANT_CALLING/COVID \
-                /media/NASII/Datos/ANALYSIS/VARIANT_CALLING/")
+if args.rsync:
+    print("STARTING RSYNC CLUSTER NASII")
+    os.system("rsync -Pvzhurltc --progress \
+                    --exclude '*Trimmed*' \
+                    --exclude '*.fastq.gz' \
+                    --exclude '*.fq.gz' \
+                    --exclude '*Quality/processed*' \
+                    --exclude '*Quality/raw*' \
+                    /home/laura/ANALYSIS/VARIANT_CALLING/COVID \
+                    /media/NASII/Datos/ANALYSIS/VARIANT_CALLING/")
 
 if __name__ == '__main__':
     try:
