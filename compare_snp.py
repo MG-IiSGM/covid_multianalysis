@@ -1417,18 +1417,14 @@ if __name__ == '__main__':
                     min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(recalibrated_snp_matrix_intermediate, args.remove_bed)
-            # recalibrated_snp_matrix_intermediate.to_csv(compare_snp_matrix_recal_intermediate, sep="\t", index=False)
 
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(recalibrated_snp_matrix_intermediate)
-            # compare_snp_matrix_INDEL_intermediate_df.to_csv(compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
 
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            # recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
 
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-            # recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
 
             logger.info("\n\n" + "Storing files to csv" + "\n")
             p1 = multiprocessing.Process(target=df_to_csv, args=[recalibrated_snp_matrix_intermediate, compare_snp_matrix_recal_intermediate])
