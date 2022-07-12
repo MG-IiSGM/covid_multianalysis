@@ -611,22 +611,22 @@ def main():
                     # annotate_pangolin(filename, out_annot_pangolin_dir,
                     #                out_pangolin_filename, threads=args.threads, max_ambig=0.6)
 
-    # USER AA TO HTML
-    annotated_samples = []
-    logger.info('Adapting annotation to html in {}'.format(group_name))
-    for root, _, files in os.walk(out_annot_user_aa_dir):
-        if root == out_annot_user_aa_dir:
-            for name in files:
-                if name.endswith('.tsv'):
-                    sample = name.split('.')[0]
-                    annotated_samples.append(sample)
-                    filename = os.path.join(root, name)
-                    annotation_to_html(filename, sample)
-    annotated_samples = [str(x) for x in annotated_samples]
-    report_samples_html_all = report_samples_html.replace(
-        'ALLSAMPLES', ('","').join(annotated_samples))  # NEW
-    with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
-        f.write(report_samples_html_all)
+    # # USER AA TO HTML
+    # annotated_samples = []
+    # logger.info('Adapting annotation to html in {}'.format(group_name))
+    # for root, _, files in os.walk(out_annot_user_aa_dir):
+    #     if root == out_annot_user_aa_dir:
+    #         for name in files:
+    #             if name.endswith('.tsv'):
+    #                 sample = name.split('.')[0]
+    #                 annotated_samples.append(sample)
+    #                 filename = os.path.join(root, name)
+    #                 annotation_to_html(filename, sample)
+    # annotated_samples = [str(x) for x in annotated_samples]
+    # report_samples_html_all = report_samples_html.replace(
+    #     'ALLSAMPLES', ('","').join(annotated_samples))  # NEW
+    # with open(os.path.join(out_annot_user_aa_dir, '00_all_samples.html'), 'w+') as f:
+    #     f.write(report_samples_html_all)
 
     # SNP COMPARISON using tsv variant files
     ######################################################

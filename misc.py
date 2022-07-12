@@ -368,7 +368,7 @@ def obtain_overal_stats(output_dir, group):
         df_stat = pd.read_csv(overal_stat_file, sep="\t")
         samples_to_skip = df_stat["#SAMPLE"].tolist()
         logger.debug("Skipped samples for coverage calculation:" +
-                     (",").join(samples_to_skip))
+                     (",").join(str(samples_to_skip)))
 
     for root, _, files in os.walk(stat_folder):
         for name in files:

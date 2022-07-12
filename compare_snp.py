@@ -294,7 +294,6 @@ def bed_to_df(bed_file):
 
     return df
 
-
 def remove_position_range(df):
 
     INDELs = df[df['Position'].str.contains(r'\|-[ATCG]+', regex=True)]
@@ -1059,6 +1058,98 @@ def ddtb_compare(final_database, distance=0, indel=False):
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=0)
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=1)
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=2)
+
+def comp2popart(compare_file, indel=False):
+    """
+    Program to transform compare output to popart input
+    """
+    
+    # output path
+    name_file = compare_file.split(".")[0]
+
+    # Read DataFrame
+    df = pd.read_csv(compare_file, sep="\t")
+
+    # Drop columns N and Samples
+    df.drop(columns=["N", "Samples"], inplace=True)
+
+    # Create a column with only positions
+    df["P"] = df.Position.apply(lambda x: int(x.split("|")[-2]))
+
+    # Drop snps present in all samples
+    to_drop = []
+    for _, row in df.iterrows():
+
+        np_row = np.array(list(row)[1:-1])
+        if sum(np_row) == len(df.columns) - 2:
+            to_drop.append(_)
+    df.drop(index=to_drop, inplace=True)
+    # Sort by position
+    df.sort_values("P", ascending=True, inplace=True)
+    df.drop(columns=["P"], inplace=True)
+
+    # Transpose
+    df_t = df.T
+
+    # output_file
+    f = open("input.fasta", "w")
+
+    # Reference
+    ref = "REF"
+    seq_ref = ""
+
+    # Loop to obtain alignment 
+    # Transform 0 and 1 in Ref AA and ALT AA
+    for _, row in df_t.iterrows():
+
+        # Store snp positions
+        if _ == "Position":
+            snp = list(row)
+            continue
+        sample = _
+        seq = ""
+        b = list(row)
+        # Add reference
+        if _ != "Position" and seq_ref == "":
+            for i in range(len(b)):
+                seq_ref += snp[i].split("|")[-3]
+
+        # Create fasta file 
+        for i in range(len(b)):
+
+            # ALT
+            if int(b[i]):
+                # IF INDEL (No set a "-" because popart does not understand it)
+                if "-" in snp[i].split("|")[-1] or "+" in snp[i].split("|")[-1]:
+                    if snp[i].split("|")[-3] == "A":
+                        seq += "T"
+                    elif snp[i].split("|")[-3] == "T":
+                        seq += "A"
+                    elif snp[i].split("|")[-3] == "C":
+                        seq += "G"
+                    elif snp[i].split("|")[-3] == "G":
+                        seq += "C"
+                else:
+                    seq += snp[i].split("|")[-1]
+            # REF
+            else:
+                seq += snp[i].split("|")[-3]
+        to_write = ">" + sample + "\n" + seq + "\n"
+        f.write(to_write)
+
+    # Write reference
+    to_write = ">" + ref + "\n" + seq_ref + "\n"
+    f.write(to_write)
+    f.close()
+
+    # Convert alignment to nexus file
+    if indel:
+        os.system("trimal -in input.fasta -out %s.INDEL.nex -nexus" %name_file)
+    else:
+        os.system("trimal -in input.fasta -out %s.nex -nexus" %name_file)
+    
+    # Remove intermediary files
+    os.system("rm input.fasta")
 
 
 def comp2popart(compare_file, indel=False):
