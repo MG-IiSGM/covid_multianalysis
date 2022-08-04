@@ -304,7 +304,7 @@ def main():
                 else:
                     logger.info(
                         GREEN + "Checking quality in sample " + sample + END_FORMATTING)
-                    logger.info("R1: " + r1_file + "\nR2: " + r2_file)
+                    # logger.info("R1: " + r1_file + "\nR2: " + r2_file)
                     fastqc_quality(r1_file, r2_file,
                                    out_qc_pre_dir, args.threads)
 
@@ -347,8 +347,8 @@ def main():
                 else:
                     logger.info(
                         GREEN + "Checking quality in processed sample " + sample + END_FORMATTING)
-                    logger.info("R1: " + output_trimming_file_r1 +
-                                "\nR2: " + output_trimming_file_r2)
+                    # logger.info("R1: " + output_trimming_file_r1 +
+                    #             "\nR2: " + output_trimming_file_r2)
                     fastqc_quality(
                         output_trimming_file_r1, output_trimming_file_r2, out_qc_post_dir, args.threads)
 
@@ -363,8 +363,8 @@ def main():
                 else:
                     logger.info(GREEN + "Mapping sample " +
                                 sample + END_FORMATTING)
-                    logger.info("R1: " + output_trimming_file_r1 + "\nR2: " +
-                                output_trimming_file_r2 + "\nReference: " + reference)
+                    # logger.info("R1: " + output_trimming_file_r1 + "\nR2: " +
+                    #             output_trimming_file_r2 + "\nReference: " + reference)
                     bwa_mapping(output_trimming_file_r1, output_trimming_file_r2,
                                 reference, sample, out_map_dir, threads=args.threads)
                     sam_to_index_bam(
@@ -382,7 +382,7 @@ def main():
                 else:
                     logger.info(GREEN + "Marking Dupes in sample " +
                                 sample + END_FORMATTING)
-                    logger.info("Input Bam: " + output_map_file)
+                    # logger.info("Input Bam: " + output_map_file)
                     picard_markdup(output_map_file)
 
                 #TRIM PRIMERS WITH ivar trim ########################
@@ -394,7 +394,7 @@ def main():
                 else:
                     logger.info(
                         GREEN + "Trimming primers in sample " + sample + END_FORMATTING)
-                    logger.info("Input Bam: " + output_markdup_file)
+                    # logger.info("Input Bam: " + output_markdup_file)
                     ivar_trim(output_markdup_file, args.primers, sample,
                               min_length=30, min_quality=20, sliding_window_width=4)
             else:
