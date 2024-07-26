@@ -89,7 +89,7 @@ def main():
                                  required=False, help='Sample to identify further files')
         input_group.add_argument('-L', '--sample_list', type=str, required=False,
                                  help='Sample names to analyse only in the file supplied')
-        input_group.add_argument('-p', '--primers', type=str, default='/home/laura/DATABASES/Anotacion/COVID/primers/nCoV-2019.bed',
+        input_group.add_argument('-p', '--primers', type=str, default='/home/laura/DATABASES/REFERENCES/COVID/primers/SARS-CoV-2.primer.bed',
                                  required=False, help='Bed file including primers to trim')
 
         quality_group = parser.add_argument_group(
@@ -372,18 +372,18 @@ def main():
 
                 #MARK DUPLICATES WITH PICARDTOOLS ###################
                 #####################################################
-                out_markdup_name = sample + ".rg.markdup.sorted.bam"
-                output_markdup_file = os.path.join(
-                    out_map_dir, out_markdup_name)
+                # out_markdup_name = sample + ".rg.markdup.sorted.bam"
+                # output_markdup_file = os.path.join(
+                #     out_map_dir, out_markdup_name)
 
-                if os.path.isfile(output_markdup_file):
-                    logger.info(YELLOW + DIM + output_markdup_file +
-                                " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-                else:
-                    logger.info(GREEN + "Marking Dupes in sample " +
-                                sample + END_FORMATTING)
-                    # logger.info("Input Bam: " + output_map_file)
-                    picard_markdup(output_map_file)
+                # if os.path.isfile(output_markdup_file):
+                #     logger.info(YELLOW + DIM + output_markdup_file +
+                #                 " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+                # else:
+                #     logger.info(GREEN + "Marking Dupes in sample " +
+                #                 sample + END_FORMATTING)
+                #     # logger.info("Input Bam: " + output_map_file)
+                #     picard_markdup(output_map_file)
 
                 #TRIM PRIMERS WITH ivar trim ########################
                 #####################################################
@@ -395,8 +395,8 @@ def main():
                     logger.info(
                         GREEN + "Trimming primers in sample " + sample + END_FORMATTING)
                     # logger.info("Input Bam: " + output_markdup_file)
-                    ivar_trim(output_markdup_file, args.primers, sample,
-                              min_length=30, min_quality=20, sliding_window_width=4)
+                    ivar_trim(output_map_file, args.primers, sample,
+                              min_length=30, min_quality=20, sliding_window_width=4)  # output_markdup_file / output_map_file
             else:
                 logger.info(YELLOW + DIM + output_markdup_trimmed_file +
                             " EXIST\nOmmiting BAM mapping and BAM manipulation in sample " + sample + END_FORMATTING)
@@ -523,8 +523,8 @@ def main():
     # SNPEFF
     if args.snpeff_database != False:
         # CHANGE FOR RAW/FILTERED ANNOTATION
-        for root, _, files in os.walk(out_filtered_ivar_dir):
-            if root == out_filtered_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
+        for root, _, files in os.walk(out_variant_ivar_dir):
+            if root == out_variant_ivar_dir:  # CHANGE FOR RAW/FILTERED ANNOTATION
                 for name in files:
                     if name.endswith('.tsv'):
                         sample = name.split('.')[0]
@@ -654,11 +654,11 @@ def main():
     compare_snp_matrix_INDEL_intermediate_df.to_csv(
         compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
     recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
-                                         min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                         min_threshold_discard_sample=0.5, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
     recalibrated_revised_df.to_csv(
         compare_snp_matrix_recal, sep="\t", index=False)
     recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, path_compare, min_freq_include=0.7,
-                                               min_threshold_discard_sample=0.07, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                               min_threshold_discard_sample=0.5, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
     recalibrated_revised_INDEL_df.to_csv(
         compare_snp_matrix_INDEL, sep="\t", index=False)
 

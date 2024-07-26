@@ -294,6 +294,7 @@ def bed_to_df(bed_file):
 
     return df
 
+
 def remove_position_range(df):
 
     INDELs = df[df['Position'].str.contains(r'\|-[ATCG]+', regex=True)]
@@ -1059,11 +1060,12 @@ def ddtb_compare(final_database, distance=0, indel=False):
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=1)
     # matrix_to_cluster(pairwise_file, snp_dist_file, distance=2)
 
+
 def comp2popart(compare_file, indel=False):
     """
     Program to transform compare output to popart input
     """
-    
+
     # output path
     name_file = compare_file.split(".")[0]
 
@@ -1098,7 +1100,7 @@ def comp2popart(compare_file, indel=False):
     ref = "REF"
     seq_ref = ""
 
-    # Loop to obtain alignment 
+    # Loop to obtain alignment
     # Transform 0 and 1 in Ref AA and ALT AA
     for _, row in df_t.iterrows():
 
@@ -1114,7 +1116,7 @@ def comp2popart(compare_file, indel=False):
             for i in range(len(b)):
                 seq_ref += snp[i].split("|")[-3]
 
-        # Create fasta file 
+        # Create fasta file
         for i in range(len(b)):
 
             # ALT
@@ -1144,10 +1146,11 @@ def comp2popart(compare_file, indel=False):
 
     # Convert alignment to nexus file
     if indel:
-        os.system("trimal -in input.fasta -out %s.INDEL.nex -nexus" %name_file)
+        os.system("trimal -in input.fasta -out %s.INDEL.nex -nexus" %
+                  name_file)
     else:
-        os.system("trimal -in input.fasta -out %s.nex -nexus" %name_file)
-    
+        os.system("trimal -in input.fasta -out %s.nex -nexus" % name_file)
+
     # Remove intermediary files
     os.system("rm input.fasta")
 
@@ -1308,11 +1311,11 @@ if __name__ == '__main__':
             compare_snp_matrix_INDEL_intermediate_df.to_csv(
                 compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
-                                                 min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                 min_threshold_discard_sample=0.5, min_threshold_discard_position=0.5, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_df.to_csv(
                 compare_snp_matrix_recal, sep="\t", index=False)
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
-                                                       min_threshold_discard_sample=0.4, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
+                                                       min_threshold_discard_sample=0.5, min_threshold_discard_position=0.5, remove_faulty=True, drop_samples=True, drop_positions=True)
             recalibrated_revised_INDEL_df.to_csv(
                 compare_snp_matrix_INDEL, sep="\t", index=False)
 
