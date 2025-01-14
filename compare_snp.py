@@ -709,6 +709,36 @@ def revised_df(df, out_dir=False, min_freq_include=0.7, min_threshold_discard_sa
     return df
 
 
+def extract_lowcov(intermediate_df):
+    df = pd.read_csv(intermediate_df, sep='\t')
+
+    # Replace Htz with 1
+    # IF HANDLE HETEROZYGOUS CHANGE THIS 0 for X or 0.5
+    def fn(x):
+        if isinstance(x, (int, float)):
+            return 1 if x > 0.5 else 0
+        else:
+            return x
+
+    df.iloc[:, 3:] = df.iloc[:, 3:].applymap(lambda x: fn(float(x)) if isinstance(x, str) and x.replace('.', '', 1).isdigit() else x)
+
+    # Crear un nuevo DataFrame para almacenar las filas filtradas
+    df_symbol = pd.DataFrame(columns=df.columns)
+
+    # Iterar sobre las filas del DataFrame
+    for index, row in df.iterrows():
+        # Filtrar los elementos diferentes de '!' y '?'
+        filtered_row = [x for x in row[3:] if x not in ['!', '?']]
+        # Verificar si todos los elementos de la fila (excluyendo '?' y '!') son iguales
+        if len(set(filtered_row)) == 1:
+            # Añadir la fila al nuevo DataFrame
+            df_symbol = pd.concat([df_symbol, pd.DataFrame([row])], ignore_index=True)
+
+    df_symbol = df_symbol[df_symbol.apply(lambda row: ('!' in row.values) or ('?' in row.values), axis=1)]
+
+    return df_symbol
+
+
 def recheck_variant_mpileup_intermediate(reference_id, position, alt_snp, sample, previous_binary, bam_folder):
     """
     http://www.htslib.org/doc/samtools-mpileup.html
@@ -1299,25 +1329,46 @@ if __name__ == '__main__':
             compare_snp_matrix_recal_intermediate = group_compare + ".revised_intermediate.tsv"
             compare_snp_matrix_INDEL_intermediate = group_compare + \
                 ".revised_INDEL_intermediate.tsv"
+
             recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
                 input_dir, coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
+
             if args.remove_bed:
                 recalibrated_snp_matrix_intermediate = remove_bed_positions(
                     recalibrated_snp_matrix_intermediate, args.remove_bed)
             recalibrated_snp_matrix_intermediate.to_csv(
                 compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+
             compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
                 recalibrated_snp_matrix_intermediate)
             compare_snp_matrix_INDEL_intermediate_df.to_csv(
                 compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+
+            # Extract all low coverage o not covered positions
+            symbol_file = group_compare + '_symbol_lowcov.tsv'
+            symbol_lowcov = extract_lowcov(compare_snp_matrix_recal_intermediate) # It is made by the INDEL_intermediate.tsv, taking 0 and 1 into account, can also be made with intermediate.highfreq.tsv
+            symbol_lowcov.to_csv(symbol_file, sep='\t', index=False)
+
             recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, output_dir, min_freq_include=0.7,
                                                  min_threshold_discard_sample=0.5, min_threshold_discard_position=0.5, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_df.to_csv(
-                compare_snp_matrix_recal, sep="\t", index=False)
+            #recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
+
+            recalibrated_revised_df = recalibrated_revised_df[~recalibrated_revised_df['Position'].isin(symbol_lowcov['Position'])]
+            recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep='\t', index=False)
+
+
+            # Extract all low coverage o not covered positions
+            symbol_INDEL_file = group_compare + '_symbol_INDEL_lowcov.tsv'
+            symbol_INDEL_lowcov = extract_lowcov(compare_snp_matrix_INDEL_intermediate) # It is made by the INDEL_intermediate.tsv, taking 0 and 1 into account, can also be made with intermediate.highfreq.tsv
+            symbol_INDEL_lowcov.to_csv(symbol_INDEL_file, sep='\t', index=False)
+
             recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, output_dir, min_freq_include=0.7,
                                                        min_threshold_discard_sample=0.5, min_threshold_discard_position=0.5, remove_faulty=True, drop_samples=True, drop_positions=True)
-            recalibrated_revised_INDEL_df.to_csv(
-                compare_snp_matrix_INDEL, sep="\t", index=False)
+            # recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
+
+            recalibrated_revised_INDEL_df = recalibrated_revised_INDEL_df[~recalibrated_revised_INDEL_df['Position'].isin(symbol_INDEL_lowcov['Position'])]
+            recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep='\t', index=False)
+
 
             ddtb_compare(compare_snp_matrix_recal, distance=args.distance)
             comp2popart(compare_snp_matrix_recal)

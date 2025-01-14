@@ -24,7 +24,7 @@ from bam_variant import picard_dictionary, samtools_faidx, picard_markdup, ivar_
 from vcf_process import filter_tsv_variants
 from annotation import annotate_snpeff, annotate_pangolin, user_annotation, user_annotation_aa, annotation_to_html, \
     report_samples_html
-from compare_snp import ddtb_add, ddtb_compare, ddbb_create_intermediate, revised_df, remove_position_range
+from compare_snp import ddtb_add, ddtb_compare, ddbb_create_intermediate, revised_df, remove_position_range, extract_lowcov
 
 """
 =============================================================
@@ -645,22 +645,41 @@ def main():
     compare_snp_matrix_recal_intermediate = full_path_compare + ".revised_intermediate.tsv"
     compare_snp_matrix_INDEL_intermediate = full_path_compare + \
         ".revised_INDEL_intermediate.tsv"
+
     recalibrated_snp_matrix_intermediate = ddbb_create_intermediate(
         out_variant_ivar_dir, out_stats_coverage_dir, min_freq_discard=0.1, min_alt_dp=4, only_snp=args.only_snp)
     recalibrated_snp_matrix_intermediate.to_csv(
         compare_snp_matrix_recal_intermediate, sep="\t", index=False)
+
     compare_snp_matrix_INDEL_intermediate_df = remove_position_range(
         recalibrated_snp_matrix_intermediate)
     compare_snp_matrix_INDEL_intermediate_df.to_csv(
         compare_snp_matrix_INDEL_intermediate, sep="\t", index=False)
+
+    # Extract all low coverage o not covered positions
+    symbol_file = full_path_compare + '_symbol_lowcov.tsv'
+    symbol_lowcov = extract_lowcov(compare_snp_matrix_recal_intermediate) # It is made by the INDEL_intermediate.tsv, taking 0 and 1 into account, can also be made with intermediate.highfreq.tsv
+    symbol_lowcov.to_csv(symbol_file, sep='\t', index=False)
+    
     recalibrated_revised_df = revised_df(recalibrated_snp_matrix_intermediate, path_compare, min_freq_include=0.7,
                                          min_threshold_discard_sample=0.5, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    recalibrated_revised_df.to_csv(
-        compare_snp_matrix_recal, sep="\t", index=False)
+    # recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep="\t", index=False)
+
+    recalibrated_revised_df = recalibrated_revised_df[~recalibrated_revised_df['Position'].isin(symbol_lowcov['Position'])]
+    recalibrated_revised_df.to_csv(compare_snp_matrix_recal, sep='\t', index=False)
+
+    # Extract all low coverage o not covered positions
+    symbol_INDEL_file = full_path_compare + '_symbol_INDEL_lowcov.tsv'
+    symbol_INDEL_lowcov = extract_lowcov(compare_snp_matrix_INDEL_intermediate) # It is made by the INDEL_intermediate.tsv, taking 0 and 1 into account, can also be made with intermediate.highfreq.tsv
+    symbol_INDEL_lowcov.to_csv(symbol_INDEL_file, sep='\t', index=False)
+
     recalibrated_revised_INDEL_df = revised_df(compare_snp_matrix_INDEL_intermediate_df, path_compare, min_freq_include=0.7,
                                                min_threshold_discard_sample=0.5, min_threshold_discard_position=0.4, remove_faulty=True, drop_samples=True, drop_positions=True)
-    recalibrated_revised_INDEL_df.to_csv(
-        compare_snp_matrix_INDEL, sep="\t", index=False)
+    # recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep="\t", index=False)
+
+    recalibrated_revised_INDEL_df = recalibrated_revised_INDEL_df[~recalibrated_revised_INDEL_df['Position'].isin(symbol_INDEL_lowcov['Position'])]
+    recalibrated_revised_INDEL_df.to_csv(compare_snp_matrix_INDEL, sep='\t', index=False)
+
 
     ddtb_compare(compare_snp_matrix_recal, distance=0)
     ddtb_compare(compare_snp_matrix_INDEL, distance=0, indel=True)
